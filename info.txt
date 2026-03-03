@@ -1,9 +1,9 @@
 ==Syntax==
-
-Other:
-|-   comments; //
-|-   multiline; /( )\
-
+______________________
+Other:                |
+|-   comments; //	  |
+|-   multiline; /( )\ |
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
 
 1.
 I/O:
