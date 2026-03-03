@@ -1,8 +1,35 @@
 ==Syntax==
+
+Other:
+|-   comments; //
+|-   multiline; /( )\
+
+
+1.
 I/O:
-|-	In:
-	readln(n); reads nTh line in Input
-	Input("Prompt") [-H (hide input with *s, -W n (adds a time limit to input)
+|-  In:
+|   readln(n): reads in line #n
+|	Input("Prompt") [-H (hide input with *s, -W n (adds a time limit to input)]
+|-  Out:
+|   Print("x"); simple out
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+
+2.
+Conditions:
+|   If: if( cond )::[break (stop), then]  
+*   {
+*
+*   }
+|   Else: 
+* {
+*  Otherwise:
+* {
+*
+* }
+|   Switch: IfCase(x)
+|   Case: X is N:
+|   Default: X is Outlier //SPECIFFICALLY THIS!!! can use \x to check X for "outlier"
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
 
 ==Colors==
 
