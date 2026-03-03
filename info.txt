@@ -1,3 +1,9 @@
+==Syntax==
+I/O:
+|-	In:
+	readln(n); reads nTh line in Input
+	Input("Prompt") [-H (hide input with *s, -W n (adds a time limit to input)
+
 ==Colors==
 
 blue:
