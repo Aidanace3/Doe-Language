@@ -1,0 +1,24 @@
+==Colors==
+
+blue:
+	variable types (Poly, Str, Int, Flt, Asa, etc)
+	conditions (if ( A > B )::break)
+			^^^^^^^
+	end, break
+	operators (>,<,=>,<=,!,|,*|,!&,!|,&&,!&)
+
+red:
+	functions
+	null (ex. A = Arr[nopoly int]; \n Arr[1..10] = null)  //for those wondering, this makes an array labeled A then sets index 1 to ten to Nil (an unset variable.) 
+
+pink:
+	if, else, finally
+	imports
+	def
+
+orange:
+	numbers
+	variables
+	arrays
+
+	
