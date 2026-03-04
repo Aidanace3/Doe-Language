@@ -4,6 +4,29 @@
 
 ### Section 1: Basic Syntax
 
+#### Operators
+
+ARITH Operators: `+`,`**`,`-`,`/`,`%`,`^`,`%%`.
+- `+`: Add
+- `**`: Multiply ( \* is used for points )
+- `-`: Subtract
+- `/`: Divide
+- `%`: Percentage of
+- `^`: Exponentiate
+- `%%`: Remdiv (Modulo)
+  
+CON Operators: `>`, `<`, `=>`, `<=`, `!`, `|`, `*|`, `!&`, `!|`, `&&`, `!&`.
+- `>`: Greater
+- `<`: Less
+- `=>`: Equal or Greater
+- `<=`: Equal or Less
+- `!`: Not
+- `|`: Or
+- `*|`: Xor
+- `&&`: Xand (Common And)
+- `!&`: Nand
+- `!|`: Nor
+  
 #### I/O
 
 **Input:**
@@ -156,6 +179,9 @@ elif ( Logvak == 2 )::Then
 else::Break
 ```
 ### 2.5 Conditionals
+
+#### 2.5.1 Cases
+
 ```dough
 *Case ifCase(n;)
   *Case is 5 :: Then
@@ -164,6 +190,15 @@ else::Break
   {/(code goes here)\};
 Exit(*case)
 ```
+
+#### 2.5.2 If/Else
+
+```dough
+NoPoly Int x = 7
+if ( X > 6 )::then
+  x = 7
+```
+
 ---
 
 ## Section 3: Recommended Syntax Highlighting Colors
