@@ -84,9 +84,9 @@ def test(x)
 {
     Print("Functions test: check")
     Print("Functions Variable test:" + x)
-    return x >> test // returns to origin of value
+    return x >> test // returns to origin of valu
 }
-
+```
 ### 2.2 Arrays
 
 To define a typed array:
