@@ -4,6 +4,9 @@
 
 ### Section 1: Basic Syntax
 
+#### Other rules
+- An independent bool is prefixed by an `@`
+
 #### Operators
 
 ARITH Operators: `+`,`**`,`-`,`/`,`%`,`^`,`%%`.
