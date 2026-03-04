@@ -69,8 +69,11 @@ IfCase(x)
 #### Points
 
 - Written as `(*POINTNAME)`
-- Used for `GOTO` and `RETURN`
-- `awaitval` executes a function as soon as a value is taken from point
+- Used for `YEILD` and `RETURN`
+- `awaitval` executes a function as soon as a value is taken from yeild
+- yeild sends a value to a point.
+- useful for:
+- - changing a block variable later on
 - Examples in Section 2.4
 
 ---
