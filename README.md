@@ -6,6 +6,7 @@
 
 #### Other rules
 - An independent bool is prefixed by an `@`
+- - eg. `as (@true);`
 
 #### Operators
 
