@@ -54,14 +54,33 @@ CON Operators: `>`, `<`, `=>`, `<=`, `!`, `|`, `*|`, `!&`, `!|`, `&&`, `!&`.
 
 **If Statement:**
 ```dough
-if(condition)::
+if(condition)::then
 {
     // code
 }
 ```
 
+/( 
+something cool you can do is change the `Then` after the `::` to a `Break` or `Func()`
+to directly do a Break or Run a Function after check.
+)\
+
+eg.
+
+```Dough
+NoPoly Const Int X = 5
+
+def FunctionA {
+  Print("hi")
+}
+
+if ( X == 5 )::FunctionA()
+{
+  Return X >> this
+}
+```
 **Else Statement:**
-```dough
+```dough 
 else::
 {
     // otherwise code
@@ -197,6 +216,7 @@ Exit(*case)
 NoPoly Int x = 7
 if ( X > 6 )::then
   x = 7
+else::break
 ```
 
 ---
