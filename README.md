@@ -29,13 +29,13 @@ CON Operators: `>`, `<`, `=>`, `<=`, `!`, `|`, `*|`, `!&`, `!|`, `&&`, `!&`.
   
 #### I/O
 
-**Input:**
+#### Input:
 - `readln(n)` - reads in line #n
 - `Input("Prompt")` - accepts user input
   - `-H` - hide input with asterisks
   - `-W n` - adds a time limit to input
 
-**Output:**
+#### Output:
 - `Print("x")` - simple output
 - Use `+` to concatenate variables with text
 
@@ -203,9 +203,9 @@ else::Break
 
 ```dough
 *Case ifCase(n;)
-  *Case is 5 :: Then
+  *Case << 5 :: Then
   {/(code goes here)\}
-  *Case is outlier?
+  *Case << outlier? // equivelant to `Default` in clang
   {/(code goes here)\};
 Exit(*case)
 ```
@@ -218,6 +218,7 @@ if ( X > 6 )::then
   x = 7
 else::break
 ```
+
 
 ---
 
