@@ -71,7 +71,8 @@ IfCase(x)
 - Written as `(*POINTNAME)`
 - Used for `YEILD` and `RETURN`
 - `awaitval` executes a function as soon as a value is taken from yeild
-- yeild sends a value to a point.
+- `yeild(*Point)` sends a value to a point.
+- `exit(*Point)` removes point from list. use after cases and functions
 - useful for:
 - - changing a block variable later on
 - Examples in Section 2.4
@@ -139,9 +140,30 @@ locked dict(type):
 x = 5
 x >> *Taking
 ```
-
 **Output:** `5`
+```dough
+// Example of a continuous listener
+(*LogStream:) awaitval(msg;)
+{
+    Print("LOG: " + msg)
+}
 
+// Later in the code
+if ( Logval == 1 )::Then
+  {"message 1" >> *LogStream}
+elif ( Logvak == 2 )::Then
+  {"message 2" >> *LogStream}
+else::Break
+```
+### 2.5 Conditionals
+```dough
+*Case ifCase(n;)
+  *Case is 5 :: Then
+  {/(code goes here)\}
+  *Case is outlier?
+  {/(code goes here)\};
+Exit(*case)
+```
 ---
 
 ## Section 3: Recommended Syntax Highlighting Colors
