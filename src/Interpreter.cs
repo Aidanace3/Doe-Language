@@ -64,6 +64,10 @@ namespace Doe_Language
         }
     }
 
+    internal sealed class BreakSignal : Exception
+    {
+    }
+
     public sealed class RuntimeEnvironment
     {
         private readonly RuntimeEnvironment? _parent;
@@ -238,6 +242,7 @@ namespace Doe_Language
         private readonly DebuggerSession? _debugger;
         private readonly bool _silentOutput;
         private int _functionDepth;
+        private int _loopDepth;
 
         public Interpreter(DebuggerSession? debugger = null, bool silentOutput = true)
         {
@@ -366,6 +371,61 @@ namespace Doe_Language
                 return null;
             }
 
+            if (stmt is WhileStmt whileStmt)
+            {
+                _loopDepth++;
+                try
+                {
+                    while (IsTruthy(Evaluate(whileStmt.Condition, env)))
+                    {
+                        try
+                        {
+                            Execute(whileStmt.Body, env);
+                        }
+                        catch (BreakSignal)
+                        {
+                            break;
+                        }
+                    }
+                }
+                finally
+                {
+                    _loopDepth--;
+                }
+
+                return null;
+            }
+
+            if (stmt is EachStmt eachStmt)
+            {
+                object? iterable = Evaluate(eachStmt.Iterable, env);
+                IEnumerable<object?> values = NormalizeIterable(eachStmt, iterable);
+
+                _loopDepth++;
+                try
+                {
+                    foreach (object? item in values)
+                    {
+                        RuntimeEnvironment loopScope = new RuntimeEnvironment(env);
+                        loopScope.Define(eachStmt.IteratorName, item, false, null);
+                        try
+                        {
+                            Execute(eachStmt.Body, loopScope);
+                        }
+                        catch (BreakSignal)
+                        {
+                            break;
+                        }
+                    }
+                }
+                finally
+                {
+                    _loopDepth--;
+                }
+
+                return null;
+            }
+
             if (stmt is ExprStmt exprStmt)
             {
                 return Evaluate(exprStmt.Expression, env);
@@ -390,9 +450,21 @@ namespace Doe_Language
                 throw new ReturnSignal(returnValue);
             }
 
+            if (stmt is YieldStmt yieldStmt)
+            {
+                object? value = Evaluate(yieldStmt.Value, env);
+                DispatchPoint(yieldStmt.PointName, value, yieldStmt.YieldToken, yieldStmt.AliasName);
+                return value;
+            }
+
             if (stmt is BreakStmt)
             {
-                return null;
+                if (_loopDepth <= 0)
+                {
+                    throw new InvalidOperationException("break can only be used inside a loop.");
+                }
+
+                throw new BreakSignal();
             }
 
             throw new InvalidOperationException("Unknown statement type at runtime.");
@@ -709,10 +781,10 @@ namespace Doe_Language
                 return;
             }
 
-            DispatchPoint(pointRef.Name, value, at);
+            DispatchPoint(pointRef.Name, value, at, null);
         }
 
-        private void DispatchPoint(string pointName, object? value, Token at)
+        private void DispatchPoint(string pointName, object? value, Token at, string? aliasName = null)
         {
             if (!_points.TryGetValue(pointName, out PointAwaitHandler? handler))
             {
@@ -723,6 +795,12 @@ namespace Doe_Language
 
             RuntimeEnvironment pointScope = new RuntimeEnvironment(handler.CapturedEnvironment);
             pointScope.Define(handler.ParameterName, value, false, null);
+            if (!string.IsNullOrWhiteSpace(aliasName) &&
+                !string.Equals(aliasName, handler.ParameterName, StringComparison.OrdinalIgnoreCase))
+            {
+                pointScope.Define(aliasName, value, false, null);
+            }
+
             Execute(handler.Body, pointScope);
         }
 
@@ -778,8 +856,23 @@ namespace Doe_Language
                 throw new InvalidOperationException("yield/yeild expects one point reference and optional value.");
             }
 
-            DispatchPoint(pointRef.Name, value, at);
+            DispatchPoint(pointRef.Name, value, at, null);
             return value;
+        }
+
+        private static IEnumerable<object?> NormalizeIterable(EachStmt eachStmt, object? iterable)
+        {
+            if (iterable is List<object?> list)
+            {
+                return list;
+            }
+
+            if (iterable is Dictionary<string, object?> dict)
+            {
+                return dict.Values;
+            }
+
+            throw new InvalidOperationException("each loop expects Arr or Dict iterable at line " + eachStmt.Line + ".");
         }
 
         private void ApplyConf(object? target, string propertyName, object? value, Token at)

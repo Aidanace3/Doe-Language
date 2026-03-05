@@ -307,6 +307,48 @@ namespace Doe_Language
         }
     }
 
+    public sealed class YieldStmt : Stmt
+    {
+        public Expr Value { get; }
+        public string PointName { get; }
+        public string? AliasName { get; }
+        public Token YieldToken { get; }
+
+        public YieldStmt(Expr value, string pointName, string? aliasName, Token yieldToken, int line = 0) : base(line)
+        {
+            Value = value;
+            PointName = pointName;
+            AliasName = aliasName;
+            YieldToken = yieldToken;
+        }
+    }
+
+    public sealed class WhileStmt : Stmt
+    {
+        public Expr Condition { get; }
+        public Stmt Body { get; }
+
+        public WhileStmt(Expr condition, Stmt body, int line = 0) : base(line)
+        {
+            Condition = condition;
+            Body = body;
+        }
+    }
+
+    public sealed class EachStmt : Stmt
+    {
+        public string IteratorName { get; }
+        public Expr Iterable { get; }
+        public Stmt Body { get; }
+
+        public EachStmt(string iteratorName, Expr iterable, Stmt body, int line = 0) : base(line)
+        {
+            IteratorName = iteratorName;
+            Iterable = iterable;
+            Body = body;
+        }
+    }
+
     public sealed class ConfStmt : Stmt
     {
         public string TargetName { get; }

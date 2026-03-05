@@ -222,6 +222,16 @@ namespace Doe_Language
                 return ParseIfCaseStatement(Previous());
             }
 
+            if (CheckIdentifierLexeme("as"))
+            {
+                return ParseAsLoopStatement();
+            }
+
+            if (CheckIdentifierLexeme("each"))
+            {
+                return ParseEachLoopStatement();
+            }
+
             if (Check(TokenType.LeftBrace))
             {
                 return ParseBlockStatement("Expected '{' to start block.");
@@ -237,6 +247,11 @@ namespace Doe_Language
             if (Match(TokenType.Return))
             {
                 return ParseReturnStatement(Previous());
+            }
+
+            if (Match(TokenType.Yield))
+            {
+                return ParseYieldStatement(Previous());
             }
 
             return ParseExpressionStatement();
@@ -263,6 +278,72 @@ namespace Doe_Language
 
             ConsumeOptionalStatementTerminator();
             return new ReturnStmt(value, returnToken, returnToken.Line);
+        }
+
+        private Stmt ParseYieldStatement(Token yieldToken)
+        {
+            if (Match(TokenType.LeftParen))
+            {
+                List<Expr> args = new List<Expr>();
+                if (!Check(TokenType.RightParen))
+                {
+                    do
+                    {
+                        args.Add(ParseExpression());
+                    }
+                    while (Match(TokenType.Comma));
+                }
+
+                Consume(TokenType.RightParen, "Expected ')' after yield/yeild arguments.");
+                ConsumeOptionalStatementTerminator();
+                return new ExprStmt(new CallExpr(yieldToken, args), yieldToken.Line);
+            }
+
+            Expr value = ParseLogicalOr();
+            Consume(TokenType.ShiftRight, "Expected '>>' in yield dispatch.");
+            Consume(TokenType.Star, "Expected '*' before point name in yield dispatch.");
+            Token pointName = ConsumeNameLikeToken("Expected point name after '*'.");
+
+            string? aliasName = null;
+            if (MatchIdentifierLexeme("as"))
+            {
+                aliasName = Consume(TokenType.Identifier, "Expected alias variable after 'as'.").Lexeme;
+            }
+
+            ConsumeOptionalStatementTerminator();
+            return new YieldStmt(value, pointName.Lexeme, aliasName, yieldToken, yieldToken.Line);
+        }
+
+        private Stmt ParseAsLoopStatement()
+        {
+            Token asToken = Advance();
+            Consume(TokenType.LeftParen, "Expected '(' after as.");
+            Expr condition = ParseExpression();
+            Consume(TokenType.RightParen, "Expected ')' after as condition.");
+            Match(TokenType.Colon);
+
+            Stmt body = ParseStatementBody();
+            return new WhileStmt(condition, body, asToken.Line);
+        }
+
+        private Stmt ParseEachLoopStatement()
+        {
+            Token eachToken = Advance();
+            Consume(TokenType.LeftParen, "Expected '(' after each.");
+            Token iterator = Consume(TokenType.Identifier, "Expected iterator variable in each loop.");
+
+            if (!MatchIdentifierLexeme("in"))
+            {
+                throw ParseError(Peek(), "Expected 'in' in each loop.");
+            }
+
+            Expr iterable = ParseExpression();
+            Consume(TokenType.RightParen, "Expected ')' after each iterable.");
+            MatchIdentifierLexeme("do");
+            Match(TokenType.Colon);
+
+            Stmt body = ParseStatementBody();
+            return new EachStmt(iterator.Lexeme, iterable, body, eachToken.Line);
         }
 
         private Stmt ParseIfStatement(Token ifToken)
@@ -327,6 +408,11 @@ namespace Doe_Language
                 return new BreakStmt(Previous().Line);
             }
 
+            if (Match(TokenType.Yield))
+            {
+                return ParseYieldStatement(Previous());
+            }
+
             if (IsCallableToken(Peek().Type))
             {
                 int line = Peek().Line;
@@ -347,6 +433,11 @@ namespace Doe_Language
                 }
 
                 Match(TokenType.Then);
+
+                if (Match(TokenType.Yield))
+                {
+                    return ParseYieldStatement(Previous());
+                }
 
                 if (IsCallableToken(Peek().Type))
                 {
@@ -922,6 +1013,21 @@ namespace Doe_Language
 
             Advance();
             return true;
+        }
+
+        private bool CheckIdentifierLexeme(string text)
+        {
+            if (IsAtEnd())
+            {
+                return false;
+            }
+
+            if (Peek().Type != TokenType.Identifier)
+            {
+                return false;
+            }
+
+            return string.Equals(Peek().Lexeme, text, StringComparison.OrdinalIgnoreCase);
         }
 
         private bool Check(TokenType type)
