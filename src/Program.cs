@@ -6,7 +6,7 @@ using LLVMSharp;
 
 namespace Doe_Language
 {
-    enum tokens
+    enum Tokens
     {
         tok_eof = -1,
         tok_def = -2,
@@ -22,7 +22,7 @@ namespace Doe_Language
             string? path = ResolveInputPath(args);
             if (path == null)
             {
-                Console.Error.WriteLine("No input file found. Pass a .doe file path, or create test.doe.");
+                Console.Error.WriteLine("No input file found. Pass a .doe file path, or create examples/test.doe.");
                 return;
             }
 
@@ -46,8 +46,24 @@ namespace Doe_Language
                 Parser parser = new Parser(tokensList);
                 List<Stmt> program = parser.ParseProgram();
 
-                Interpreter interpreter = new Interpreter();
+                DebuggerSession? debugger = null;
+                if (HasFlag(args, "--debug"))
+                {
+                    debugger = new DebuggerSession(ParseBreakpoints(args));
+                }
+
+                bool silentOutput = HasFlag(args, "--silent");
+                if (HasFlag(args, "--verbose"))
+                {
+                    silentOutput = false;
+                }
+
+                Interpreter interpreter = new Interpreter(debugger, silentOutput);
                 interpreter.ExecuteProgram(program);
+            }
+            catch (OperationCanceledException ex)
+            {
+                Console.WriteLine(ex.Message);
             }
             catch (Exception ex)
             {
@@ -68,6 +84,42 @@ namespace Doe_Language
             return false;
         }
 
+        private static List<int> ParseBreakpoints(string[] args)
+        {
+            List<int> lines = new List<int>();
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                string arg = args[i];
+                string? payload = null;
+
+                if (arg.StartsWith("--break=", StringComparison.OrdinalIgnoreCase))
+                {
+                    payload = arg.Substring("--break=".Length);
+                }
+                else if (string.Equals(arg, "--break", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                {
+                    payload = args[i + 1];
+                }
+
+                if (string.IsNullOrWhiteSpace(payload))
+                {
+                    continue;
+                }
+
+                string[] parts = payload.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                for (int p = 0; p < parts.Length; p++)
+                {
+                    if (int.TryParse(parts[p].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int line) && line > 0)
+                    {
+                        lines.Add(line);
+                    }
+                }
+            }
+
+            return lines;
+        }
+
         private static string? ResolveInputPath(string[] args)
         {
             for (int i = 0; i < args.Length; i++)
@@ -81,6 +133,12 @@ namespace Doe_Language
             if (File.Exists("test.doe"))
             {
                 return "test.doe";
+            }
+
+            string examplesPath = Path.Combine("examples", "test.doe");
+            if (File.Exists(examplesPath))
+            {
+                return examplesPath;
             }
 
             string lexingPath = Path.Combine("Lexing", "test.doe");
@@ -99,6 +157,7 @@ namespace Doe_Language
         Comma,
         Dot,
         DotDot,
+        Question,
         Colon,
         DoubleColon,
         Semicolon,
@@ -107,8 +166,11 @@ namespace Doe_Language
         Plus,
         Minus,
         Star,
+        DoubleStar,
         Slash,
         Percent,
+        DoublePercent,
+        Caret,
         Pipe,
         StarPipe,
         Bang,
@@ -118,7 +180,10 @@ namespace Doe_Language
         BangAmpersand,
 
         Equal,
+        EqualEqual,
         EqualGreater,
+        ShiftRight,
+        ShiftLeft,
         Greater,
         GreaterEqual,
         Less,
@@ -127,8 +192,10 @@ namespace Doe_Language
         Identifier,
         String,
         Number,
+        Boolean,
 
         If,
+        Elif,
         Else,
         Otherwise,
         IfCase,
@@ -137,12 +204,18 @@ namespace Doe_Language
         Def,
         Import,
         Break,
+        Return,
         Then,
         End,
+        Dict,
+        Locked,
+        Conf,
+        Yield,
 
         ReadLn,
         Input,
         Print,
+        AwaitVal,
 
         NoPoly,
         Const,
@@ -152,6 +225,7 @@ namespace Doe_Language
         Flt,
         Arr,
         Null,
+        NewLine,
 
         Eof
     }
@@ -185,6 +259,7 @@ namespace Doe_Language
         private static readonly Dictionary<string, TokenType> Keywords = new Dictionary<string, TokenType>(StringComparer.OrdinalIgnoreCase)
         {
             { "if", TokenType.If },
+            { "elif", TokenType.Elif },
             { "else", TokenType.Else },
             { "otherwise", TokenType.Otherwise },
             { "ifcase", TokenType.IfCase },
@@ -193,11 +268,18 @@ namespace Doe_Language
             { "def", TokenType.Def },
             { "import", TokenType.Import },
             { "break", TokenType.Break },
+            { "return", TokenType.Return },
             { "then", TokenType.Then },
             { "end", TokenType.End },
+            { "dict", TokenType.Dict },
+            { "locked", TokenType.Locked },
+            { "conf", TokenType.Conf },
+            { "yield", TokenType.Yield },
+            { "yeild", TokenType.Yield },
             { "readln", TokenType.ReadLn },
             { "input", TokenType.Input },
             { "print", TokenType.Print },
+            { "awaitval", TokenType.AwaitVal },
             { "nopoly", TokenType.NoPoly },
             { "const", TokenType.Const },
             { "str", TokenType.Str },
@@ -216,6 +298,7 @@ namespace Doe_Language
         private int _column = 1;
         private int _tokenLine = 1;
         private int _tokenColumn = 1;
+        private int _expressionNesting;
 
         public Lexer(string source)
         {
@@ -247,13 +330,25 @@ namespace Doe_Language
                 case ' ':
                 case '\r':
                 case '\t':
+                    return;
                 case '\n':
+                    if (_expressionNesting == 0)
+                    {
+                        AddToken(TokenType.NewLine);
+                    }
+
                     return;
                 case '(':
                     AddToken(TokenType.LeftParen);
+                    _expressionNesting++;
                     return;
                 case ')':
                     AddToken(TokenType.RightParen);
+                    if (_expressionNesting > 0)
+                    {
+                        _expressionNesting--;
+                    }
+
                     return;
                 case '{':
                     AddToken(TokenType.LeftBrace);
@@ -263,15 +358,24 @@ namespace Doe_Language
                     return;
                 case '[':
                     AddToken(TokenType.LeftBracket);
+                    _expressionNesting++;
                     return;
                 case ']':
                     AddToken(TokenType.RightBracket);
+                    if (_expressionNesting > 0)
+                    {
+                        _expressionNesting--;
+                    }
+
                     return;
                 case ',':
                     AddToken(TokenType.Comma);
                     return;
                 case ';':
                     AddToken(TokenType.Semicolon);
+                    return;
+                case '?':
+                    AddToken(TokenType.Question);
                     return;
                 case '\\':
                     AddToken(TokenType.Backslash);
@@ -289,10 +393,19 @@ namespace Doe_Language
                     AddToken(TokenType.Minus);
                     return;
                 case '*':
-                    AddToken(Match('|') ? TokenType.StarPipe : TokenType.Star);
+                    if (Match('|'))
+                    {
+                        AddToken(TokenType.StarPipe);
+                        return;
+                    }
+
+                    AddToken(Match('*') ? TokenType.DoubleStar : TokenType.Star);
                     return;
                 case '%':
-                    AddToken(TokenType.Percent);
+                    AddToken(Match('%') ? TokenType.DoublePercent : TokenType.Percent);
+                    return;
+                case '^':
+                    AddToken(TokenType.Caret);
                     return;
                 case '|':
                     AddToken(TokenType.Pipe);
@@ -316,12 +429,33 @@ namespace Doe_Language
                     AddToken(TokenType.Bang);
                     return;
                 case '=':
-                    AddToken(Match('>') ? TokenType.EqualGreater : TokenType.Equal);
+                    if (Match('>'))
+                    {
+                        AddToken(TokenType.EqualGreater);
+                        return;
+                    }
+
+                    AddToken(Match('=') ? TokenType.EqualEqual : TokenType.Equal);
+                    return;
+                case '@':
+                    ReadBooleanLiteral();
                     return;
                 case '<':
+                    if (Match('<'))
+                    {
+                        AddToken(TokenType.ShiftLeft);
+                        return;
+                    }
+
                     AddToken(Match('=') ? TokenType.LessEqual : TokenType.Less);
                     return;
                 case '>':
+                    if (Match('>'))
+                    {
+                        AddToken(TokenType.ShiftRight);
+                        return;
+                    }
+
                     AddToken(Match('=') ? TokenType.GreaterEqual : TokenType.Greater);
                     return;
                 case '"':
@@ -451,6 +585,30 @@ namespace Doe_Language
             }
 
             AddToken(TokenType.Identifier);
+        }
+
+        private void ReadBooleanLiteral()
+        {
+            while (IsIdentifierPart(Peek()))
+            {
+                Advance();
+            }
+
+            string lexeme = _source.Substring(_start, _current - _start);
+            string text = lexeme.Length > 1 ? lexeme.Substring(1) : string.Empty;
+            if (string.Equals(text, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                AddToken(TokenType.Boolean, true);
+                return;
+            }
+
+            if (string.Equals(text, "false", StringComparison.OrdinalIgnoreCase))
+            {
+                AddToken(TokenType.Boolean, false);
+                return;
+            }
+
+            throw new InvalidOperationException("Invalid bool literal '" + lexeme + "' at " + _tokenLine + ":" + _tokenColumn + ".");
         }
 
         private static bool IsIdentifierStart(char c)

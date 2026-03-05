@@ -2,18 +2,17 @@ def test(x)
 {
     Print("Functions test: check")
     Print("Functions Variable test:" + x)
-    return x >> void
 }
 
 test("check")
 
-nopoly int poop = 6
+nopoly int testvar = 6
 
-if (poop > 5)::then
+if (testvar > 5)::then
 {
     Print("Conditions test 1: check")
 }
-if (poop = 5)::then
+if (testvar = 5)::then
 {
     Print("Conditions test 2: check")
 }
