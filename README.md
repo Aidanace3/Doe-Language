@@ -175,22 +175,49 @@ IfCase(x)
 - `awaitval` executes a function as soon as a value is taken from yeild
 - `yeild(var >> *Point)` sends a value to a point.
 - `exit(*Point)` removes point from list. use after cases and functions
-- useful for:
-- - changing a block variable later on
+- `Store(Val Asa Valname >> *Point)` saves a value to a point
+- - accessible with `request(x << *Point.Valname)`
+- - Another way to store it is defining it in the Point's function it's connected to
 - Examples in Section 2.4
 
 ---
 
 ## Section 2: Examples & Syntax
 
-### 2.1 Functions
+### 2.1 Loops
+
+Point loop
 
 ```dough
-def test(x) 
 {
-    Print("Functions test: check")
-    Print("Functions Variable test:" + x)
-    return x >> test // returns to origin of valu
+(*); 
+{
+  //code
+  loop ( l >> this x10 )
+  return l >> this
+}
+exit(*this)
+}
+```
+
+Built in loops:
+
+as (while)
+
+```dough
+as(@true):
+{
+  //code
+  if(@stopcondition)::break
+}
+```
+
+each in (foreach)
+
+```dough
+each(x in [arr]) do:
+{
+  //code
 }
 ```
 
