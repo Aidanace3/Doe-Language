@@ -1,10 +1,8 @@
-Dough_V0.7.3-alpha-1.BUGFIX
-
-
-
 # Doe Language Documentation
 
-## NOTE: install [here](https://github.com/Aidanace3/Dough)
+## current V: Dough_V0.7.3-alpha-1_BUGFIX
+
+## NOTE: [Install here](https://github.com/Aidanace3/Dough)
 
 ## Running Dough Programs
 
@@ -28,11 +26,13 @@ Dough_V0.7.3-alpha-1.BUGFIX
 - Optional: add the extracted folder to your PATH so `Dough.exe` works from any terminal.
 
 ## Add `Launch.Json`
+
 - Add a folder at top called `.vscode`
+
 - Add a file called `Launch.json`
   paste this;
   
-  ```json
+```json
   {
   "version": "0.2.0",
   "configurations": [
@@ -49,8 +49,8 @@ Dough_V0.7.3-alpha-1.BUGFIX
       "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${workspaceFolder}/../Doe-Language/dough.ps1\" --debug \"${file}\""
     }
   ]
-}```
-
+}
+```
 
 ## Syntax
 
@@ -61,7 +61,6 @@ Dough_V0.7.3-alpha-1.BUGFIX
 - An independent bool is prefixed by an `@`
 - - eg. `as (@true);`
 - Any casing works, even if specifically noted here, (eg, ’Print` = `print`)
-
 
 #### Operators
 
@@ -173,7 +172,7 @@ IfCase(x)
 
 - `Dict` - create a dictionary (see Section 2.3)
 - `Return` - written as `Return n >> (point)`
-- `Funcs` - Depracated [\(?\)]
+- `Funcs` - Depracated
 
 #### Points
 
@@ -321,6 +320,4 @@ else::break
 
 ```
 
-
 ### Footnotes
-
