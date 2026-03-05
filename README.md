@@ -1,5 +1,5 @@
 # Doe Language Documentation
-## NOTE: install [here](http://github.com/Aidanace3/Dough
+## NOTE: install [here](http://github.com/Aidanace3/Dough)
 ## Running Dough Programs
 
 - Direct command (no `dotnet run`): `.\dough.cmd examples\test.doe`
