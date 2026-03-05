@@ -1,4 +1,10 @@
+Dough_V0.7.2-alpha-1
+
+
+
 # Doe Language Documentation
+
+## NOTE: install [here](https://github.com/Aidanace3/Dough)
 
 ## Running Dough Programs
 
@@ -21,6 +27,31 @@
 - Extract and run `Dough.exe yourfile.doe`
 - Optional: add the extracted folder to your PATH so `Dough.exe` works from any terminal.
 
+## Add `Launch.Json`
+- Add a folder at top called `.vscode`
+- Add a file called `Launch.json`
+  paste this;
+  
+  ```json
+  {
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Dough: Run Current File (CLI)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${workspaceFolder}/../Doe-Language/dough.ps1\" \"${file}\""
+    },
+    {
+      "name": "Dough: Debug Current File (CLI)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${workspaceFolder}/../Doe-Language/dough.ps1\" --debug \"${file}\""
+    }
+  ]
+}```
+
+
 ## Syntax
 
 ### Section 1: Basic Syntax
@@ -29,6 +60,8 @@
 
 - An independent bool is prefixed by an `@`
 - - eg. `as (@true);`
+- Any casing works, even if specifically noted here, (eg, ’Print` = `print`)
+
 
 #### Operators
 
@@ -140,32 +173,58 @@ IfCase(x)
 
 - `Dict` - create a dictionary (see Section 2.3)
 - `Return` - written as `Return n >> (point)`
-- `Funcs` - see Section 2.1 for syntax
-- By default, functions take point variable input
+- `Funcs` - Depracated [\(?\)]
 
 #### Points
 
 - Written as `(*POINTNAME)`
 - Used for `YEILD` and `RETURN`
 - `awaitval` executes a function as soon as a value is taken from yeild
-- `yeild(*Point)` sends a value to a point.
+- `yeild(var >> *Point)` sends a value to a point.
 - `exit(*Point)` removes point from list. use after cases and functions
-- useful for:
-- - changing a block variable later on
+- `Store(Val Asa Valname >> *Point)` saves a value to a point
+- - accessible with `request(x << *Point.Valname)`
+- - Another way to store it is defining it in the Point's function it's connected to
 - Examples in Section 2.4
 
 ---
 
 ## Section 2: Examples & Syntax
 
-### 2.1 Functions
+### 2.1 Loops
+
+Point loop
 
 ```dough
-def test(x) 
 {
-    Print("Functions test: check")
-    Print("Functions Variable test:" + x)
-    return x >> test // returns to origin of valu
+(*); 
+{
+  //code
+  loop ( l >> this x10 )
+  return l >> this
+}
+exit(*this)
+}
+```
+
+Built in loops:
+
+as (while)
+
+```dough
+as(@true):
+{
+  //code
+  if(@stopcondition)::break
+}
+```
+
+each in (foreach)
+
+```dough
+each(x in [arr]) do:
+{
+  //code
 }
 ```
 
@@ -206,6 +265,8 @@ locked dict(type):
     // variables of specified type
 }
 ```
+
+to use a dictionary variable; `Dict.Varname’
 
 ### 2.4 Points
 
@@ -260,4 +321,6 @@ else::break
 
 ```
 
----
+
+### Footnotes
+
