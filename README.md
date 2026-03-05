@@ -173,7 +173,7 @@ IfCase(x)
 - Written as `(*POINTNAME)`
 - Used for `YEILD` and `RETURN`
 - `awaitval` executes a function as soon as a value is taken from yeild
-- `yeild(*Point)` sends a value to a point.
+- `yeild(var >> *Point)` sends a value to a point.
 - `exit(*Point)` removes point from list. use after cases and functions
 - useful for:
 - - changing a block variable later on
