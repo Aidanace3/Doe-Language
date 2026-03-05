@@ -651,6 +651,18 @@ namespace Doe_Language
                 return null;
             }
 
+            if (string.Equals(name, "debug", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(name, "breakpoint", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_debugger == null)
+                {
+                    throw new InvalidOperationException("debug() requires runtime debug mode. Run with --debug.");
+                }
+
+                _debugger.BreakNow(env, at.Line);
+                return null;
+            }
+
             if (string.Equals(name, "yield", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(name, "yeild", StringComparison.OrdinalIgnoreCase))
             {

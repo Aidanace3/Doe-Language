@@ -49,7 +49,9 @@ namespace Doe_Language
                 DebuggerSession? debugger = null;
                 if (HasFlag(args, "--debug"))
                 {
-                    debugger = new DebuggerSession(ParseBreakpoints(args));
+                    List<int> breakpoints = ParseBreakpoints(args);
+                    bool startInStepMode = breakpoints.Count == 0 || HasFlag(args, "--step");
+                    debugger = new DebuggerSession(breakpoints, startInStepMode);
                 }
 
                 bool silentOutput = HasFlag(args, "--silent");

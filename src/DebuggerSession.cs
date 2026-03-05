@@ -9,9 +9,10 @@ namespace Doe_Language
         private readonly HashSet<int> _breakpoints;
         private bool _stepMode;
 
-        public DebuggerSession(IEnumerable<int> breakpoints)
+        public DebuggerSession(IEnumerable<int> breakpoints, bool startInStepMode = false)
         {
             _breakpoints = new HashSet<int>(breakpoints);
+            _stepMode = startInStepMode;
         }
 
         public void BeforeExecute(Stmt stmt, RuntimeEnvironment env)
@@ -99,6 +100,12 @@ namespace Doe_Language
 
                 Console.WriteLine("Commands: s(step), c(continue), b <line>, p <var>, locals, q(quit)");
             }
+        }
+
+        public void BreakNow(RuntimeEnvironment env, int line = 0)
+        {
+            _stepMode = true;
+            BeforeExecute(new BreakStmt(line > 0 ? line : 1), env);
         }
 
         private static void PrintVariable(RuntimeEnvironment env, string name)
