@@ -21,6 +21,31 @@
 - Extract and run `Dough.exe yourfile.doe`
 - Optional: add the extracted folder to your PATH so `Dough.exe` works from any terminal.
 
+## Add `Launch.Json`
+- Add a folder at top called `.vscode`
+- Add a file called `Launch.json`
+  paste this;
+  
+  ```json
+  {
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Dough: Run Current File (CLI)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${workspaceFolder}/../Doe-Language/dough.ps1\" \"${file}\""
+    },
+    {
+      "name": "Dough: Debug Current File (CLI)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${workspaceFolder}/../Doe-Language/dough.ps1\" --debug \"${file}\""
+    }
+  ]
+}```
+
+
 ## Syntax
 
 ### Section 1: Basic Syntax
