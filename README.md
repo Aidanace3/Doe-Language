@@ -1,5 +1,11 @@
+Dough_V0.7.2-alpha-1
+
+
+
 # Doe Language Documentation
-## NOTE: install [here](http://github.com/Aidanace3/Dough)
+
+## NOTE: install [here](https://github.com/Aidanace3/Dough)
+
 ## Running Dough Programs
 
 - Direct command (no `dotnet run`): `.\dough.cmd examples\test.doe`
@@ -54,6 +60,8 @@
 
 - An independent bool is prefixed by an `@`
 - - eg. `as (@true);`
+- Any casing works, even if specifically noted here, (eg, ’Print` = `print`)
+
 
 #### Operators
 
@@ -165,8 +173,7 @@ IfCase(x)
 
 - `Dict` - create a dictionary (see Section 2.3)
 - `Return` - written as `Return n >> (point)`
-- `Funcs` - see Section 2.1 for syntax
-- By default, functions take point variable input
+- `Funcs` - Depracated [\(?\)]
 
 #### Points
 
@@ -259,6 +266,8 @@ locked dict(type):
 }
 ```
 
+to use a dictionary variable; `Dict.Varname’
+
 ### 2.4 Points
 
 ```dough
@@ -312,4 +321,6 @@ else::break
 
 ```
 
----
+
+### Footnotes
+
