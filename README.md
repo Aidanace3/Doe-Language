@@ -1,16 +1,39 @@
 # Doe Language Documentation
 
+## Running Dough Programs
+
+- Direct command (no `dotnet run`): `.\dough.cmd examples\test.doe`
+- PowerShell wrapper: `.\dough.ps1 examples\test.doe`
+- Silent mode: `.\dough.cmd --silent examples\test.doe`
+- Verbose mode (default): `.\dough.cmd examples\test.doe`
+
+## Install In VS Code (Language Support)
+
+- Install from Marketplace:
+  - `code --install-extension aidanace3.dough-language`
+- Or in VS Code Extensions search:
+  - `aidanace3.dough-language`
+
+## Install Runtime (CLI)
+
+- Open: `https://github.com/Aidanace3/Doe-Language/releases/latest`
+- Download `dough-runtime-win-x64.zip`
+- Extract and run `Dough.exe yourfile.doe`
+- Optional: add the extracted folder to your PATH so `Dough.exe` works from any terminal.
+
 ## Syntax
 
 ### Section 1: Basic Syntax
 
 #### Other rules
+
 - An independent bool is prefixed by an `@`
 - - eg. `as (@true);`
 
 #### Operators
 
 ARITH Operators: `+`,`**`,`-`,`/`,`%`,`^`,`%%`.
+
 - `+`: Add
 - `**`: Multiply ( \* is used for points )
 - `-`: Subtract
@@ -20,6 +43,7 @@ ARITH Operators: `+`,`**`,`-`,`/`,`%`,`^`,`%%`.
 - `%%`: Remdiv (Modulo)
   
 CON Operators: `>`, `<`, `=>`, `<=`, `!`, `|`, `*|`, `!&`, `!|`, `&&`, `!&`.
+
 - `>`: Greater
 - `<`: Less
 - `=>`: Equal or Greater
@@ -33,13 +57,15 @@ CON Operators: `>`, `<`, `=>`, `<=`, `!`, `|`, `*|`, `!&`, `!|`, `&&`, `!&`.
   
 #### I/O
 
-#### Input:
+#### Input
+
 - `readln(n)` - reads in line #n
 - `Input("Prompt")` - accepts user input
   - `-H` - hide input with asterisks
   - `-W n` - adds a time limit to input
 
-#### Output:
+#### Output
+
 - `Print("x")` - simple output
 - Use `+` to concatenate variables with text
 
@@ -57,6 +83,7 @@ CON Operators: `>`, `<`, `=>`, `<=`, `!`, `|`, `*|`, `!&`, `!|`, `&&`, `!&`.
 #### Conditions
 
 **If Statement:**
+
 ```dough
 if(condition)::then
 {
@@ -64,7 +91,7 @@ if(condition)::then
 }
 ```
 
-/( 
+/(
 something cool you can do is change the `Then` after the `::` to a `Break` or `Func()`
 to directly do a Break or Run a Function after check.
 )\
@@ -83,8 +110,10 @@ if ( X == 5 )::FunctionA()
   Return X >> this
 }
 ```
+
 **Else Statement:**
-```dough 
+
+```dough
 else::
 {
     // otherwise code
@@ -92,6 +121,7 @@ else::
 ```
 
 **Switch Statement:**
+
 ```dough
 IfCase(x)
 {
@@ -105,6 +135,7 @@ IfCase(x)
     }
 }
 ```
+
 #### Dictionaries & Functions
 
 - `Dict` - create a dictionary (see Section 2.3)
@@ -137,6 +168,7 @@ def test(x)
     return x >> test // returns to origin of valu
 }
 ```
+
 ### 2.2 Arrays
 
 To define a typed array:
@@ -149,6 +181,7 @@ To define a typed array:
 **Note:** `conf` changes the properties of an object instead of `obj.setting = x`
 
 Array properties include:
+
 - `type` (only if not NoPoly)
 - `name` (constant)
 - `length` (integer)
@@ -186,7 +219,9 @@ locked dict(type):
 x = 5
 x >> *Taking
 ```
+
 **Output:** `5`
+
 ```dough
 // Example of a continuous listener
 (*LogStream:) awaitval(msg;)
@@ -201,6 +236,7 @@ elif ( Logvak == 2 )::Then
   {"message 2" >> *LogStream}
 else::Break
 ```
+
 ### 2.5 Conditionals
 
 #### 2.5.1 Cases
@@ -221,5 +257,7 @@ NoPoly Int x = 7
 if ( X > 6 )::then
   x = 7
 else::break
+
 ```
+
 ---

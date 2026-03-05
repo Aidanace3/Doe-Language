@@ -1,0 +1,68 @@
+name: Build And Attach Release Assets
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Publish Dough Runtime (win-x64 single-file)
+        run: >
+          dotnet publish Other_Bullshit/Doe-Language.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          /p:PublishSingleFile=true
+          /p:IncludeNativeLibrariesForSelfExtract=true
+          -o out/runtime/win-x64
+
+      - name: Zip Runtime
+        shell: pwsh
+        run: |
+          Compress-Archive -Path out/runtime/win-x64/* -DestinationPath out/dough-runtime-win-x64.zip -Force
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Package Dough VS Code Extension
+        shell: pwsh
+        run: |
+          Push-Location Dough
+          npm ci
+          npx @vscode/vsce package
+          Pop-Location
+
+      - name: Copy VSIX To Output
+        shell: pwsh
+        run: |
+          $vsix = Get-ChildItem Dough -Filter *.vsix | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $vsix) { throw "No VSIX produced." }
+          New-Item -ItemType Directory -Path out -Force | Out-Null
+          Copy-Item $vsix.FullName out\ -Force
+
+      - name: Upload release assets
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/dough-runtime-win-x64.zip
+            out/*.vsix
