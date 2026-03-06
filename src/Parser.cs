@@ -296,6 +296,14 @@ namespace Doe_Language
 
                 Consume(TokenType.RightParen, "Expected ')' after yield/yeild arguments.");
                 ConsumeOptionalStatementTerminator();
+
+                // README form: yeild(value >> *Point) should dispatch directly.
+                if (args.Count == 1 &&
+                    TryUnpackYieldDispatch(args[0], out Expr dispatchValue, out string dispatchPoint))
+                {
+                    return new YieldStmt(dispatchValue, dispatchPoint, null, yieldToken, yieldToken.Line);
+                }
+
                 return new ExprStmt(new CallExpr(yieldToken, args), yieldToken.Line);
             }
 
@@ -320,7 +328,7 @@ namespace Doe_Language
             Consume(TokenType.LeftParen, "Expected '(' after as.");
             Expr condition = ParseExpression();
             Consume(TokenType.RightParen, "Expected ')' after as condition.");
-            Match(TokenType.Colon);
+            Consume(TokenType.Colon, "Expected ':' after as(condition).");
 
             Stmt body = ParseStatementBody();
             return new WhileStmt(condition, body, asToken.Line);
@@ -339,8 +347,12 @@ namespace Doe_Language
 
             Expr iterable = ParseExpression();
             Consume(TokenType.RightParen, "Expected ')' after each iterable.");
-            MatchIdentifierLexeme("do");
-            Match(TokenType.Colon);
+            if (!MatchIdentifierLexeme("do"))
+            {
+                throw ParseError(Peek(), "Expected 'do' after each(...).");
+            }
+
+            Consume(TokenType.Colon, "Expected ':' after each(... ) do.");
 
             Stmt body = ParseStatementBody();
             return new EachStmt(iterator.Lexeme, iterable, body, eachToken.Line);
@@ -1091,6 +1103,31 @@ namespace Doe_Language
             }
 
             return type >= TokenType.If && type <= TokenType.Null;
+        }
+
+        private static bool TryUnpackYieldDispatch(Expr expression, out Expr value, out string pointName)
+        {
+            if (expression is BinaryExpr binary &&
+                binary.Operator.Type == TokenType.ShiftRight &&
+                binary.Right is PointRefExpr pointRefRight)
+            {
+                value = binary.Left;
+                pointName = pointRefRight.PointName;
+                return true;
+            }
+
+            if (expression is BinaryExpr binaryLeft &&
+                binaryLeft.Operator.Type == TokenType.ShiftLeft &&
+                binaryLeft.Left is PointRefExpr pointRefLeft)
+            {
+                value = binaryLeft.Right;
+                pointName = pointRefLeft.PointName;
+                return true;
+            }
+
+            value = expression;
+            pointName = string.Empty;
+            return false;
         }
 
         private Token Advance()

@@ -239,6 +239,7 @@ namespace Doe_Language
         private readonly RuntimeEnvironment _globals = new RuntimeEnvironment(null);
         private readonly Dictionary<string, PointAwaitHandler> _points = new Dictionary<string, PointAwaitHandler>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, int> _pointDispatchCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        private readonly Stack<string> _pointContext = new Stack<string>();
         private readonly DebuggerSession? _debugger;
         private readonly bool _silentOutput;
         private int _functionDepth;
@@ -521,7 +522,7 @@ namespace Doe_Language
 
                 if (string.Equals(variable.Name, "this", StringComparison.OrdinalIgnoreCase))
                 {
-                    return new PointReferenceValue(null);
+                    return new PointReferenceValue(GetCurrentPointName());
                 }
 
                 if (_points.ContainsKey(variable.Name))
@@ -534,6 +535,11 @@ namespace Doe_Language
 
             if (expr is PointRefExpr pointRefExpr)
             {
+                if (string.Equals(pointRefExpr.PointName, "this", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new PointReferenceValue(GetCurrentPointName());
+                }
+
                 return new PointReferenceValue(pointRefExpr.PointName);
             }
 
@@ -778,7 +784,7 @@ namespace Doe_Language
         {
             if (string.IsNullOrWhiteSpace(pointRef.Name))
             {
-                return;
+                throw new InvalidOperationException("Point reference 'this' is only valid while running inside a point handler at " + at.Line + ":" + at.Column + ".");
             }
 
             DispatchPoint(pointRef.Name, value, at, null);
@@ -801,7 +807,15 @@ namespace Doe_Language
                 pointScope.Define(aliasName, value, false, null);
             }
 
-            Execute(handler.Body, pointScope);
+            _pointContext.Push(pointName);
+            try
+            {
+                Execute(handler.Body, pointScope);
+            }
+            finally
+            {
+                _pointContext.Pop();
+            }
         }
 
         private void WarnUncalledPoints()
@@ -873,6 +887,11 @@ namespace Doe_Language
             }
 
             throw new InvalidOperationException("each loop expects Arr or Dict iterable at line " + eachStmt.Line + ".");
+        }
+
+        private string? GetCurrentPointName()
+        {
+            return _pointContext.Count == 0 ? null : _pointContext.Peek();
         }
 
         private void ApplyConf(object? target, string propertyName, object? value, Token at)
