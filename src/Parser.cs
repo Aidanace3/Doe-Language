@@ -7,11 +7,14 @@ namespace Doe_Language
     {
         private readonly IReadOnlyList<Token> _tokens;
         private int _current;
+        private readonly List<ParseError> _errors = new List<ParseError>();
 
         public Parser(IReadOnlyList<Token> tokens)
         {
             _tokens = tokens;
         }
+
+        public IReadOnlyList<ParseError> Errors => _errors;
 
         public List<Stmt> ParseProgram()
         {
@@ -197,6 +200,17 @@ namespace Doe_Language
         {
             SkipNewLines();
 
+            // Check for standalone else/elif/otherwise without matching if
+            if (Match(TokenType.Elif))
+            {
+                throw ParseError(Previous(), "elif without matching if statement.");
+            }
+
+            if (Match(TokenType.Else) || Match(TokenType.Otherwise))
+            {
+                throw ParseError(Previous(), "else/otherwise without matching if statement.");
+            }
+
             if (CheckLegacyPointCaseStart())
             {
                 return ParseLegacyPointCaseStatement();
@@ -307,10 +321,11 @@ namespace Doe_Language
                 return new ExprStmt(new CallExpr(yieldToken, args), yieldToken.Line);
             }
 
-            Expr value = ParseLogicalOr();
-            Consume(TokenType.ShiftRight, "Expected '>>' in yield dispatch.");
-            Consume(TokenType.Star, "Expected '*' before point name in yield dispatch.");
-            Token pointName = ConsumeNameLikeToken("Expected point name after '*'.");
+            Expr dispatchExpr = ParseShift();
+            if (!TryUnpackYieldDispatch(dispatchExpr, out Expr value, out string pointName))
+            {
+                throw ParseError(Peek(), "Expected point dispatch in yield/yeild statement.");
+            }
 
             string? aliasName = null;
             if (MatchIdentifierLexeme("as"))
@@ -319,7 +334,7 @@ namespace Doe_Language
             }
 
             ConsumeOptionalStatementTerminator();
-            return new YieldStmt(value, pointName.Lexeme, aliasName, yieldToken, yieldToken.Line);
+            return new YieldStmt(value, pointName, aliasName, yieldToken, yieldToken.Line);
         }
 
         private Stmt ParseAsLoopStatement()
@@ -360,7 +375,12 @@ namespace Doe_Language
 
         private Stmt ParseIfStatement(Token ifToken)
         {
+            if (!Check(TokenType.LeftParen))
+            {
+                throw ParseError(Peek(), "Expected '(' after if.");
+            }
             Consume(TokenType.LeftParen, "Expected '(' after if.");
+            
             Expr condition = ParseExpression();
             Consume(TokenType.RightParen, "Expected ')' after if condition.");
             Stmt? conditionAction = ParseOptionalConditionAction();
@@ -368,6 +388,7 @@ namespace Doe_Language
             Stmt thenBranch = ParseStatementBody();
 
             Stmt? elseBranch = null;
+            
             if (Match(TokenType.Elif))
             {
                 elseBranch = ParseElifBranch();
@@ -391,6 +412,8 @@ namespace Doe_Language
             Stmt thenBranch = ParseStatementBody();
 
             Stmt? elseBranch = null;
+            bool hadElse = false;
+            
             if (Match(TokenType.Elif))
             {
                 elseBranch = ParseElifBranch();
@@ -398,6 +421,7 @@ namespace Doe_Language
             else if (Match(TokenType.Else) || Match(TokenType.Otherwise))
             {
                 elseBranch = ParseElseBranch();
+                hadElse = true;
             }
 
             return new IfStmt(condition, conditionAction, thenBranch, elseBranch, line);
@@ -654,7 +678,7 @@ namespace Doe_Language
         {
             Expr expr = ParseComparison();
 
-            while (Match(TokenType.EqualEqual))
+            while (Match(TokenType.EqualEqual) || Match(TokenType.TripleEqual))
             {
                 Token op = Previous();
                 Expr right = ParseComparison();
@@ -1107,25 +1131,71 @@ namespace Doe_Language
 
         private static bool TryUnpackYieldDispatch(Expr expression, out Expr value, out string pointName)
         {
+            if (expression is GroupExpr grouped)
+            {
+                return TryUnpackYieldDispatch(grouped.Expression, out value, out pointName);
+            }
+
             if (expression is BinaryExpr binary &&
                 binary.Operator.Type == TokenType.ShiftRight &&
-                binary.Right is PointRefExpr pointRefRight)
+                TryExtractPointName(binary.Right, out string rightPointName))
             {
                 value = binary.Left;
-                pointName = pointRefRight.PointName;
+                pointName = rightPointName;
+                return true;
+            }
+
+            if (expression is BinaryExpr binaryRightPoint &&
+                binaryRightPoint.Operator.Type == TokenType.ShiftLeft &&
+                TryExtractPointName(binaryRightPoint.Right, out string rightPointNameShiftLeft))
+            {
+                value = binaryRightPoint.Left;
+                pointName = rightPointNameShiftLeft;
                 return true;
             }
 
             if (expression is BinaryExpr binaryLeft &&
                 binaryLeft.Operator.Type == TokenType.ShiftLeft &&
-                binaryLeft.Left is PointRefExpr pointRefLeft)
+                TryExtractPointName(binaryLeft.Left, out string leftPointName))
             {
                 value = binaryLeft.Right;
-                pointName = pointRefLeft.PointName;
+                pointName = leftPointName;
+                return true;
+            }
+
+            if (expression is BinaryExpr binaryLeftPoint &&
+                binaryLeftPoint.Operator.Type == TokenType.ShiftRight &&
+                TryExtractPointName(binaryLeftPoint.Left, out string leftPointNameShiftRight))
+            {
+                value = binaryLeftPoint.Right;
+                pointName = leftPointNameShiftRight;
                 return true;
             }
 
             value = expression;
+            pointName = string.Empty;
+            return false;
+        }
+
+        private static bool TryExtractPointName(Expr pointExpr, out string pointName)
+        {
+            if (pointExpr is GroupExpr grouped)
+            {
+                return TryExtractPointName(grouped.Expression, out pointName);
+            }
+
+            if (pointExpr is PointRefExpr pointRef)
+            {
+                pointName = pointRef.PointName;
+                return true;
+            }
+
+            if (pointExpr is VariableExpr variable)
+            {
+                pointName = variable.Name;
+                return true;
+            }
+
             pointName = string.Empty;
             return false;
         }
@@ -1157,7 +1227,24 @@ namespace Doe_Language
 
         private Exception ParseError(Token token, string message)
         {
+            _errors.Add(new ParseError(token.Line, token.Column, token.Lexeme, message));
             return new InvalidOperationException("Parse error at " + token.Line + ":" + token.Column + " near '" + token.Lexeme + "': " + message);
+        }
+    }
+
+    public sealed class ParseError
+    {
+        public int Line { get; }
+        public int Column { get; }
+        public string Lexeme { get; }
+        public string Message { get; }
+
+        public ParseError(int line, int column, string lexeme, string message)
+        {
+            Line = line;
+            Column = column;
+            Lexeme = lexeme;
+            Message = message;
         }
     }
 }
