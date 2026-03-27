@@ -176,7 +176,7 @@ namespace Doe_Language
         Pipe,
         StarPipe,
         Bang,
-        BangPipe,
+        BangPipe, //me to femboys:
         Ampersand,
         DoubleAmpersand,
         BangAmpersand,
@@ -196,6 +196,7 @@ namespace Doe_Language
         Number,
         Boolean,
 
+        
         If,
         Elif,
         Else,
