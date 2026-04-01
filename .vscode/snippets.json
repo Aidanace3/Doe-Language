@@ -1,0 +1,9 @@
+{
+		"Simple if Statement": {
+	 	"prefix": "If",
+	 	"body": [
+	 		"if(${2:Condition})::$1{then|break}\n{\n\t\n}"
+	 	],
+	 	"description": "Generic If"
+	 }
+}

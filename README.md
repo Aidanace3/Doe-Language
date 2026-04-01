@@ -1,15 +1,22 @@
 # Doe Language Documentation
 
-## current V: Dough_V0.7.3-alpha-1_BUGFIX
+## current V: Dough_V0.9.0
 
 ## NOTE: [Install here](https://github.com/Aidanace3/Dough)
 
 ## Running Dough Programs
 
-- Direct command (no `dotnet run`): `.\dough.cmd examples\test.doe`
+- Direct command: `.\dough.cmd examples\test.doe`
 - PowerShell wrapper: `.\dough.ps1 examples\test.doe`
 - Silent mode: `.\dough.cmd --silent examples\test.doe`
-- Verbose mode (default): `.\dough.cmd examples\test.doe`
+- Verbose mode: `.\dough.cmd --verbose examples\test.doe`
+- Syntax check only: `.\dough.cmd --check examples\test.doe`
+- Runtime info: `.\dough.cmd --runtime-info`
+- Version: `.\dough.cmd --version`
+- Self-contained publish: `.\publish-runtime.ps1`
+- Full release build: `.\build-release.ps1`
+- If `published\win-x64\Dough.exe` exists, the wrappers prefer it for standalone use.
+- If no standalone runtime exists, the wrappers now prefer Release builds before Debug fallback.
 
 ## Install In VS Code (Language Support)
 
@@ -23,6 +30,8 @@
 - Open: `https://github.com/Aidanace3/Doe-Language/releases/latest`
 - Download `dough-runtime-win-x64.zip`
 - Extract and run `Dough.exe yourfile.doe`
+- Or build your own standalone runtime with `.\publish-runtime.ps1`
+- Or build both runtime and VS Code artifacts with `.\build-release.ps1`
 - Optional: add the extracted folder to your PATH so `Dough.exe` works from any terminal.
 
 ## Add `Launch.Json`
@@ -53,6 +62,23 @@
 ```
 
 ## Syntax
+
+### Preferred / Legacy / Deprecated
+
+- Preferred
+  - `yield` keyword spelling
+  - Point dispatch with `>>` or `<<` (for example: `yield value << Point`)
+  - `return value >> this` when returning to a parent point context
+  - `=` for assignment, `==` for comparison, `===` for strict comparison
+  - Screenshot-style aliases now accepted for modern authoring:
+    `with ...`, `unless (...)`, `Otherwise:` inside `IfCase`, grouped `Case:(A, B, C):`, dotted access like `meta.device`, and `new type name: { ... }`
+- `import` / `with` now execute local `.doe` / `.dough` modules once, resolve relative to the importing file, and search common library folders such as `lib/`, `libs/`, `library/`, and `libraries/`
+  - `with plugin:PluginName` loads a C# plugin assembly from common plugin folders such as `plugins/` and `plugin/`
+- Legacy (still supported)
+  - `yeild` spelling
+  - Legacy point-case forms kept for compatibility
+- Deprecated
+  - `def`/`Funcs`-style declarations remain supported for backward compatibility but should be phased out due to points.
 
 ### Section 1: Basic Syntax
 
@@ -168,9 +194,12 @@ IfCase(x)
 }
 ```
 
-#### Dictionaries & Functions
+#### Dictionaries, Configs & Functions
 
 - `Dict` - create a dictionary (see Section 2.3)
+- `Conf` - create an importable config dictionary
+- `map(dict, overlayDict)` - merge configs/dicts into a new dict
+- `map(dict, "key1", "key2")` - project selected values into an array
 - `Return` - written as `Return n >> (point)`
 - `Funcs` - Depracated
 
@@ -178,6 +207,7 @@ IfCase(x)
 
 - Written as `(*POINTNAME)`
 - Used for `YEILD` and `RETURN`
+- Use `this` (not `*this`) for parent point context
 - `awaitval` executes a function as soon as a value is taken from yeild
 - `yeild(var >> *Point)` sends a value to a point.
 - `exit(*Point)` removes point from list. use after cases and functions
@@ -232,18 +262,8 @@ each(x in [arr]) do:
 To define a typed array:
 
 ```dough
-/( set up )\ name = Arr[type]
-/( length )\ conf name.Length = x
+name = [1, 2, 3]
 ```
-
-**Note:** `conf` changes the properties of an object instead of `obj.setting = x`
-
-Array properties include:
-
-- `type` (only if not NoPoly)
-- `name` (constant)
-- `length` (integer)
-- `lower` (lowest index, useful for constants like `LettersFromO = [p,q,r,s...]`)
 
 ### 2.3 Dictionaries
 
@@ -263,6 +283,28 @@ locked dict(type):
 {
     // variables of specified type
 }
+```
+
+Define a config:
+
+```dough
+conf WindowBase:
+{
+    int width = 1280
+    int height = 720
+    str title = "Doe Window"
+}
+```
+
+Configs are imported the same way as normal modules and behave as dictionaries at runtime.
+
+Compose imported configs:
+
+```dough
+with display_config
+
+dict FinalWindow = map(base_window, debug_window)
+arr picked = map(FinalWindow, "width", "title")
 ```
 
 to use a dictionary variable; `Dict.Varname’
@@ -296,6 +338,19 @@ elif ( Logvak == 2 )::Then
   {"message 2" >> *LogStream}
 else::Break
 ```
+
+### 2.6 C# Plugins
+
+- Use `with plugin:Your.Plugin.Name` to load a C# plugin assembly.
+- Plugins are searched from the current project, the importing file's folder, and common plugin folders like `plugins/` and `plugin/`.
+- Two authoring styles are supported:
+  - Simple convention plugin: a public static `PluginFunctions` class whose public static methods become callable from Doe.
+  - SDK plugin: implement `IDoePlugin` from [DoePluginContracts.cs](/c:/Users/Norberg/DoeLang/Doe-Language/PluginSdk/DoePluginContracts.cs).
+- Example sample plugin:
+  - [Doe.WindowsPlugin.Sample.csproj](/c:/Users/Norberg/DoeLang/Doe-Language/plugins/Doe.WindowsPlugin.Sample/Doe.WindowsPlugin.Sample.csproj)
+  - [WindowsPlugin.cs](/c:/Users/Norberg/DoeLang/Doe-Language/plugins/Doe.WindowsPlugin.Sample/WindowsPlugin.cs)
+- Example Doe usage:
+  - [plugin_demo.doe](/c:/Users/Norberg/DoeLang/Doe-Language/examples/plugin_demo.doe)
 
 ### 2.5 Conditionals
 

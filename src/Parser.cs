@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace Doe_Language
 {
@@ -42,6 +43,11 @@ namespace Doe_Language
                 return ParseImport(Previous());
             }
 
+            if (Match(TokenType.With))
+            {
+                return ParseImport(Previous());
+            }
+
             if (Match(TokenType.Locked))
             {
                 Token lockedToken = Previous();
@@ -57,6 +63,11 @@ namespace Doe_Language
             if (Match(TokenType.Def))
             {
                 return ParseFunction(Previous());
+            }
+
+            if (Match(TokenType.New))
+            {
+                return ParseNewDeclaration(Previous());
             }
 
             if (IsVariableDeclarationStart())
@@ -81,9 +92,47 @@ namespace Doe_Language
 
         private Stmt ParseImport(Token importToken)
         {
-            Token module = Consume(TokenType.Identifier, "Expected module name after import.");
+            StringBuilder moduleBuilder = new StringBuilder();
+            TokenType? previousType = null;
+            while (!IsStatementTerminator(Peek().Type))
+            {
+                Token token = Advance();
+                if (ShouldInsertImportSpace(previousType, token.Type))
+                {
+                    moduleBuilder.Append(' ');
+                }
+
+                moduleBuilder.Append(token.Lexeme);
+                previousType = token.Type;
+            }
+
+            if (moduleBuilder.Length == 0)
+            {
+                throw ParseError(Peek(), "Expected module name after import/with.");
+            }
+
             ConsumeOptionalStatementTerminator();
-            return new ImportStmt(module.Lexeme, importToken.Line);
+            return new ImportStmt(moduleBuilder.ToString(), importToken.Line);
+        }
+
+        private Stmt ParseNewDeclaration(Token newToken)
+        {
+            List<Token> parts = new List<Token>();
+            while (IsNameLikeToken(Peek().Type))
+            {
+                parts.Add(Advance());
+            }
+
+            if (parts.Count == 0)
+            {
+                throw ParseError(Peek(), "Expected declaration name after 'new'.");
+            }
+
+            string variableName = parts[parts.Count - 1].Lexeme;
+            Match(TokenType.Colon);
+            Expr initializer = ParseInlineArrayLiteralBlock();
+            ConsumeOptionalStatementTerminator();
+            return new VarDeclStmt(variableName, false, "Arr", initializer, newToken.Line);
         }
 
         private Stmt ParseDictDeclaration(Token startToken, bool isLocked)
@@ -231,6 +280,11 @@ namespace Doe_Language
                 return ParseIfStatement(Previous());
             }
 
+            if (Match(TokenType.Unless))
+            {
+                return ParseIfStatement(Previous(), true);
+            }
+
             if (Match(TokenType.IfCase))
             {
                 return ParseIfCaseStatement(Previous());
@@ -273,13 +327,12 @@ namespace Doe_Language
 
         private Stmt ParseConfStatement(Token confToken)
         {
-            Token target = Consume(TokenType.Identifier, "Expected target variable after conf.");
-            Consume(TokenType.Dot, "Expected '.' after conf target.");
-            Token property = Consume(TokenType.Identifier, "Expected property name after '.'.");
-            Consume(TokenType.Equal, "Expected '=' in conf statement.");
-            Expr value = ParseExpression();
+            Token name = Consume(TokenType.Identifier, "Expected config name after conf.");
+            Match(TokenType.Colon);
+            SkipNewLines();
+            BlockStmt body = ParseBlockStatement("Expected '{' to start config body.");
             ConsumeOptionalStatementTerminator();
-            return new ConfStmt(target.Lexeme, property.Lexeme, value, target, confToken.Line);
+            return new ConfigDeclStmt(name.Lexeme, body.Statements, confToken.Line);
         }
 
         private Stmt ParseReturnStatement(Token returnToken)
@@ -373,21 +426,27 @@ namespace Doe_Language
             return new EachStmt(iterator.Lexeme, iterable, body, eachToken.Line);
         }
 
-        private Stmt ParseIfStatement(Token ifToken)
+        private Stmt ParseIfStatement(Token ifToken, bool negateCondition = false)
         {
             if (!Check(TokenType.LeftParen))
             {
-                throw ParseError(Peek(), "Expected '(' after if.");
+                throw ParseError(Peek(), "Expected '(' after conditional keyword.");
             }
-            Consume(TokenType.LeftParen, "Expected '(' after if.");
+            Consume(TokenType.LeftParen, "Expected '(' after conditional keyword.");
             
             Expr condition = ParseExpression();
             Consume(TokenType.RightParen, "Expected ')' after if condition.");
+            if (negateCondition)
+            {
+                condition = new UnaryExpr(new Token(TokenType.Bang, "!", null, ifToken.Line, ifToken.Column), condition);
+            }
+
             Stmt? conditionAction = ParseOptionalConditionAction();
 
             Stmt thenBranch = ParseStatementBody();
 
             Stmt? elseBranch = null;
+            SkipNewLines();
             
             if (Match(TokenType.Elif))
             {
@@ -412,7 +471,7 @@ namespace Doe_Language
             Stmt thenBranch = ParseStatementBody();
 
             Stmt? elseBranch = null;
-            bool hadElse = false;
+            SkipNewLines();
             
             if (Match(TokenType.Elif))
             {
@@ -421,7 +480,6 @@ namespace Doe_Language
             else if (Match(TokenType.Else) || Match(TokenType.Otherwise))
             {
                 elseBranch = ParseElseBranch();
-                hadElse = true;
             }
 
             return new IfStmt(condition, conditionAction, thenBranch, elseBranch, line);
@@ -508,13 +566,19 @@ namespace Doe_Language
 
             while (!Check(TokenType.RightBrace) && !IsAtEnd())
             {
+                SkipNewLines();
+                if (Check(TokenType.RightBrace) || IsAtEnd())
+                {
+                    break;
+                }
+
                 if (Match(TokenType.Case))
                 {
                     Match(TokenType.Colon);
-                    Expr matchExpr = ParseExpression();
+                    Expr matchExpr = ParseCaseMatchExpression();
                     if (MatchIdentifierLexeme("is"))
                     {
-                        matchExpr = ParseExpression();
+                        matchExpr = ParseCaseMatchExpression();
                     }
 
                     Consume(TokenType.Colon, "Expected ':' after Case expression.");
@@ -523,7 +587,7 @@ namespace Doe_Language
                     continue;
                 }
 
-                if (Match(TokenType.Default))
+                if (Match(TokenType.Default) || Match(TokenType.Otherwise))
                 {
                     Match(TokenType.Colon);
                     if (MatchIdentifierLexeme("x"))
@@ -546,6 +610,37 @@ namespace Doe_Language
 
             Consume(TokenType.RightBrace, "Expected '}' after IfCase block.");
             return new IfCaseStmt(subject, cases, defaultBranch, ifCaseToken.Line);
+        }
+
+        private Expr ParseCaseMatchExpression()
+        {
+            if (Match(TokenType.LeftParen))
+            {
+                List<Expr> elements = new List<Expr>();
+                if (!Check(TokenType.RightParen))
+                {
+                    do
+                    {
+                        elements.Add(ParseCaseGroupItem());
+                    }
+                    while (Match(TokenType.Comma));
+                }
+
+                Consume(TokenType.RightParen, "Expected ')' after Case group.");
+                return new ArrayLiteralExpr(elements);
+            }
+
+            return ParseExpression();
+        }
+
+        private Expr ParseCaseGroupItem()
+        {
+            if (Match(TokenType.Identifier))
+            {
+                return new LiteralExpr(Previous().Lexeme);
+            }
+
+            return ParseExpression();
         }
 
         private Stmt ParseCaseBody()
@@ -598,6 +693,29 @@ namespace Doe_Language
             Expr expression = ParseExpression();
             ConsumeOptionalStatementTerminator();
             return new ExprStmt(expression, line);
+        }
+
+        private Expr ParseInlineArrayLiteralBlock()
+        {
+            Consume(TokenType.LeftBrace, "Expected '{' to start new declaration body.");
+            List<Expr> elements = new List<Expr>();
+            SkipNewLines();
+
+            while (!Check(TokenType.RightBrace) && !IsAtEnd())
+            {
+                elements.Add(ParseExpression());
+
+                if (Match(TokenType.Comma))
+                {
+                    SkipNewLines();
+                    continue;
+                }
+
+                SkipNewLines();
+            }
+
+            Consume(TokenType.RightBrace, "Expected '}' after new declaration body.");
+            return new ArrayLiteralExpr(elements);
         }
 
         private Expr ParseExpression()
@@ -811,6 +929,14 @@ namespace Doe_Language
                     Expr index = ParseExpression();
                     Consume(TokenType.RightBracket, "Expected ']' after index expression.");
                     expr = new IndexExpr(expr, index, openBracket);
+                    continue;
+                }
+
+                if (Match(TokenType.Dot))
+                {
+                    Token dot = Previous();
+                    Token member = ConsumeNameLikeToken("Expected property name after '.'.");
+                    expr = new IndexExpr(expr, new LiteralExpr(member.Lexeme), dot);
                     continue;
                 }
 
@@ -1084,6 +1210,23 @@ namespace Doe_Language
             }
 
             return _tokens[_current + offset].Type == type;
+        }
+
+        private static bool IsStatementTerminator(TokenType type)
+        {
+            return type == TokenType.Semicolon ||
+                   type == TokenType.NewLine ||
+                   type == TokenType.Eof;
+        }
+
+        private static bool ShouldInsertImportSpace(TokenType? previousType, TokenType currentType)
+        {
+            if (previousType == null)
+            {
+                return false;
+            }
+
+            return IsNameLikeToken(previousType.Value) && IsNameLikeToken(currentType);
         }
 
         private void SkipNewLines()

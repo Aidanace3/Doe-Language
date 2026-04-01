@@ -1,0 +1,20 @@
+// Variables
+nopoly int x = 7
+
+// Condition
+if (x > 5)::then
+{
+    Print("Condition: check")
+}
+
+nopoly int i = 0
+as(@true):
+{
+    int i = i + 1
+    print(i)
+}
+
+// Final
+Print("___")
+Print("check")
+

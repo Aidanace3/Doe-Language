@@ -7,10 +7,14 @@
     <RootNamespace>Doe_Language</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Version>0.9.0</Version>
+    <AssemblyVersion>0.9.0.0</AssemblyVersion>
+    <FileVersion>0.9.0.0</FileVersion>
+    <InformationalVersion>0.9.0</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="LLVMSharp" Version="20.1.2" />
+    <ProjectReference Include="..\PluginSdk\Doe.PluginSdk.csproj" />
   </ItemGroup>
 
   <ItemGroup>

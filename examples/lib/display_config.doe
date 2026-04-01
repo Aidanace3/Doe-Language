@@ -1,0 +1,11 @@
+conf base_window:
+{
+    int width = 1280
+    int height = 720
+    str title = "Doe Window"
+}
+
+conf debug_window:
+{
+    str title = "Doe Debug Window"
+}

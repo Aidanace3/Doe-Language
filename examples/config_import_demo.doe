@@ -1,0 +1,8 @@
+with display_config
+
+final_window = map(base_window, debug_window)
+arr[str] picked = map(final_window, "width", "title")
+
+Print("window_title = " + final_window.title)
+Print("window_width = " + picked[1])
+Print("window_title_again = " + picked[2])

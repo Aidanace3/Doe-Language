@@ -4,6 +4,7 @@ obj/
 **/obj/
 out/
 artifacts/
+published/
 
 *.user
 *.suo

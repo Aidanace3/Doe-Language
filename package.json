@@ -1,0 +1,121 @@
+{
+  "name": "dough-language",
+  "publisher": "aidanace3",
+  "displayName": "Dough Language",
+  "description": "Syntax highlighting and language configuration for Dough files (doe shorthand supported).",
+  "version": "0.9.0",
+  "icon": "Dough/assets/favicon_fileimg.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aidanace3/Doe-Language.git"
+  },
+  "homepage": "https://github.com/Aidanace3/Doe-Language",
+  "bugs": {
+    "url": "https://github.com/Aidanace3/Doe-Language/issues"
+  },
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "scripts": {
+    "check": "node --check Dough/extension.js",
+    "package:vsix": "npx @vscode/vsce package --no-dependencies",
+    "publish:marketplace": "npx @vscode/vsce publish --no-dependencies"
+  },
+  "main": "./Dough/extension.js",
+  "activationEvents": [
+    "onLanguage:dough",
+    "onCommand:dough.debugCurrentFile",
+    "onCommand:dough.runCurrentFile",
+    "onDebugResolve:dough"
+  ],
+  "contributes": {
+    "snippets": [
+      {
+        "language": "dough",
+        "path": "./.vscode/snippets.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "dough.debugCurrentFile",
+        "title": "Dough: Debug Current File"
+      },
+      {
+        "command": "dough.runCurrentFile",
+        "title": "Dough: Run Current File"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "dough",
+        "label": "Dough Debugger",
+        "languages": [
+          "dough"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Path to the Dough source file (.doe/.dough). Defaults to current file."
+              },
+              "runtimeCommand": {
+                "type": "string",
+                "description": "Optional runtime command override. Example: dough"
+              },
+              "command": {
+                "type": "string",
+                "description": "Optional full command override for terminal launch."
+              },
+              "debugFlag": {
+                "type": "string",
+                "description": "Flag used to enable debug mode on runtime.",
+                "default": "--debug"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "name": "Dough: Debug Current File",
+            "type": "dough",
+            "request": "launch",
+            "program": "${file}"
+          }
+        ]
+      }
+    ],
+    "languages": [
+      {
+        "id": "dough",
+        "aliases": [
+          "Dough",
+          "dough",
+          "Doe",
+          "doe"
+        ],
+        "extensions": [
+          ".doe",
+          ".dough"
+        ],
+        "icon": {
+          "light": "./Dough/assets/favicon_fileimg.png",
+          "dark": "./Dough/assets/favicon_fileimg.png"
+        },
+        "configuration": "./Dough/language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dough",
+        "scopeName": "source.dough",
+        "path": "./Dough/syntaxes/dough.tmLanguage.json"
+      }
+    ]
+  }
+}

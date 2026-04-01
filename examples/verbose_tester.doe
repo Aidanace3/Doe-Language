@@ -1,0 +1,249 @@
+Print("DOE VERBOSE TESTER")
+Print("This program exercises the current Doe runtime with explicit PASS and FAIL reporting.")
+Print("------------------------------------------------------------")
+
+nopoly flt pass_count = 0
+nopoly flt fail_count = 0
+nopoly flt section_count = 0
+
+def section(name)
+{
+    section_count = section_count + 1
+    Print("")
+    Print("SECTION " + section_count + ": " + name)
+    Print("------------------------------------------------------------")
+}
+
+def pass(label, detail)
+{
+    pass_count = pass_count + 1
+    Print("[PASS] " + label)
+    Print("       " + detail)
+}
+
+def fail(label, expected, actual)
+{
+    fail_count = fail_count + 1
+    Print("[FAIL] " + label)
+    Print("       expected: " + expected)
+    Print("       actual:   " + actual)
+}
+
+def assert_equal(label, actual, expected)
+{
+    if (actual == expected)::then
+    {
+        pass(label, "equality matched")
+        return @true
+    } else::
+    {
+        fail(label, expected, actual)
+        return @false
+    }
+}
+
+def assert_loose_equal(label, actual, expected)
+{
+    if (actual == expected)::then
+    {
+        pass(label, "loose equality matched")
+        return @true
+    } else::
+    {
+        fail(label, expected, actual)
+        return @false
+    }
+}
+
+def assert_truthy(label, value)
+{
+    if (value == @true)::then
+    {
+        pass(label, "expression evaluated to true")
+        return @true
+    } else::
+    {
+        fail(label, @true, value)
+        return @false
+    }
+}
+
+def square(n)
+{
+    return n ** 2
+}
+
+def add_three(a, b, c)
+{
+    return a + b + c
+}
+
+section("Numbers, strings, and direct expressions")
+nopoly int base_value = 10
+nopoly const int locked_value = 12
+flt ratio_value = 9 / 2
+str language_name = "Doe"
+assert_equal("const value survives", locked_value, 12)
+assert_equal("addition", base_value + 5, 15)
+assert_equal("subtraction", base_value - 4, 6)
+assert_equal("multiplication with star", 6 * 7, 42)
+assert_equal("double-star exponentiation", 6 ** 7, 279936)
+assert_equal("power with caret", 2 ^ 5, 32)
+assert_loose_equal("division produces floating value", ratio_value, 4.5)
+assert_equal("percentage operator", 25 % 200, 50)
+assert_equal("modulo operator", 20 %% 6, 2)
+assert_equal("string concatenation", language_name + " tester", "Doe tester")
+
+section("Comparison and boolean logic")
+assert_equal("greater than", 9 > 3, @true)
+assert_equal("less than", 2 < 9, @true)
+assert_equal("greater-or-equal", 7 => 7, @true)
+assert_equal("less-or-equal", 7 <= 7, @true)
+assert_equal("loose equality int to float", 5 == 5.0, @true)
+assert_equal("strict equality int to float", 5 === 5.0, @false)
+assert_equal("logical or", @true | @false, @true)
+assert_equal("logical and", @true && @true, @true)
+assert_equal("logical xor", @true *| @false, @true)
+assert_equal("logical nand", @true !& @true, @false)
+assert_equal("logical nor", @false !| @false, @true)
+assert_equal("logical not", !@false, @true)
+
+section("Functions and returns")
+assert_equal("square function", square(9), 81)
+assert_equal("add_three function", add_three(4, 5, 6), 15)
+assert_equal("nested function call", square(add_three(1, 2, 3)), 36)
+
+section("If, elif, else, and IfCase")
+nopoly int mode = 2
+str mode_name = "unset"
+if (mode == 1)::then
+{
+    mode_name = "one"
+} elif (mode == 2)::then
+{
+    mode_name = "two"
+} else::
+{
+    mode_name = "other"
+}
+assert_equal("elif branch selected", mode_name, "two")
+
+str classification = "none"
+IfCase(mode) { Case: 1:
+    classification = "single"
+    Case: 2:
+    classification = "double"
+    Default:
+    classification = "outlier"
+}
+assert_equal("IfCase branch selected", classification, "double")
+
+section("Arrays, indexing, and ranges")
+arr[int] numbers = [10, 20, 30, 40, 50]
+assert_equal("array first element", numbers[1], 10)
+assert_equal("array last element", numbers[5], 50)
+assert_equal("Max on array returns length", Max(numbers), 5)
+assert_equal("Min on non-empty array returns lower bound", Min(numbers), 1)
+
+arr[int] middle_numbers = numbers[2..4]
+assert_equal("range slice length", Max(middle_numbers), 3)
+assert_equal("range slice first element", middle_numbers[1], 20)
+assert_equal("range slice last element", middle_numbers[3], 40)
+
+arr[int] literal_numbers = [2, 4, 6, 8]
+assert_equal("array literal element 2", literal_numbers[2], 4)
+assert_equal("numeric Max helper", Max(3, 9, 4, 1), 9)
+assert_equal("numeric Min helper", Min(3, 9, 4, 1), 1)
+
+section("Loops")
+nopoly flt running_total = 0
+nopoly flt current_index = 0
+as(@true):
+{
+    current_index = current_index + 1
+    running_total = running_total + current_index
+
+    if (current_index >= 5)::then
+    {
+        break
+    }
+}
+assert_equal("while-style loop counter", current_index, 5)
+assert_equal("while-style loop total", running_total, 15)
+
+nopoly flt array_total = 0
+each(item in numbers) do:
+{
+    array_total = array_total + item
+}
+assert_equal("each loop sum", array_total, 150)
+
+section("Dictionaries")
+dict profile:
+{
+    str name = "Verbose Doe"
+    int build = 1
+}
+assert_equal("dict string read", profile["name"], "Verbose Doe")
+assert_equal("dict int read", profile["build"], 1)
+profile["status"] = "active"
+assert_equal("dict dynamic assignment", profile["status"], "active")
+
+locked dict(int) scoreboard:
+{
+    int alpha = 7
+    int beta = 11
+}
+assert_equal("locked dict alpha", scoreboard["alpha"], 7)
+assert_equal("locked dict beta", scoreboard["beta"], 11)
+
+section("Points and point dispatch")
+arr[str] event_log = Arr[str]
+str alias_capture = "unset"
+
+(*Logger:) awaitval(message;)
+{
+    Print("[POINT] Logger received -> " + message)
+
+    if (message == "alpha")::then
+    {
+        event_log[1] = "saw alpha"
+    } elif (message == "beta")::then
+    {
+        event_log[2] = "saw beta"
+    } elif (message == "gamma")::then
+    {
+        event_log[3] = "saw gamma"
+    } else::
+    {
+        event_log[4] = "saw other"
+    }
+}
+
+(*AliasProbe:) awaitval(incoming;)
+{
+    alias_capture = mirror
+    Print("[POINT] AliasProbe copied alias -> " + alias_capture)
+}
+
+"alpha" >> *Logger
+yield("beta" >> *Logger)
+yield "gamma" >> *Logger
+yield "mirrored value" >> *AliasProbe as mirror
+
+assert_equal("point dispatch alpha", event_log[1], "saw alpha")
+assert_equal("point dispatch beta", event_log[2], "saw beta")
+assert_equal("point dispatch gamma", event_log[3], "saw gamma")
+assert_equal("yield alias variable", alias_capture, "mirrored value")
+
+section("Final summary")
+Print("Pass count: " + pass_count)
+Print("Fail count: " + fail_count)
+
+if (fail_count == 0)::then
+{
+    Print("OVERALL RESULT: PASS")
+} else::
+{
+    Print("OVERALL RESULT: FAIL")
+}

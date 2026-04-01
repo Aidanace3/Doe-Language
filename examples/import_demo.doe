@@ -1,0 +1,5 @@
+with greeter, constants
+
+Print(greet("Doe"))
+Print("magic = " + import_magic)
+Print("double = " + double_value(import_magic))

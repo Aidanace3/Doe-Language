@@ -349,19 +349,15 @@ namespace Doe_Language
         }
     }
 
-    public sealed class ConfStmt : Stmt
+    public sealed class ConfigDeclStmt : Stmt
     {
-        public string TargetName { get; }
-        public string PropertyName { get; }
-        public Expr Value { get; }
-        public Token TargetToken { get; }
+        public string Name { get; }
+        public List<Stmt> Body { get; }
 
-        public ConfStmt(string targetName, string propertyName, Expr value, Token targetToken, int line = 0) : base(line)
+        public ConfigDeclStmt(string name, List<Stmt> body, int line = 0) : base(line)
         {
-            TargetName = targetName;
-            PropertyName = propertyName;
-            Value = value;
-            TargetToken = targetToken;
+            Name = name;
+            Body = body;
         }
     }
 

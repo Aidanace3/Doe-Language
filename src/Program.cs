@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using LLVMSharp;
+using System.Runtime.InteropServices;
 
 namespace Doe_Language
 {
@@ -17,15 +17,37 @@ namespace Doe_Language
 
     public static class Program
     {
+        private const string RuntimeVersion = "0.9.0";
+
         public static void Main(string[] args)
         {
+            if (HasFlag(args, "--help") || HasFlag(args, "-h"))
+            {
+                PrintHelp();
+                return;
+            }
+
+            if (HasFlag(args, "--version"))
+            {
+                Console.WriteLine("Dough " + RuntimeVersion);
+                return;
+            }
+
+            if (HasFlag(args, "--runtime-info"))
+            {
+                PrintRuntimeInfo();
+                return;
+            }
+
             string? path = ResolveInputPath(args);
             if (path == null)
             {
                 Console.Error.WriteLine("No input file found. Pass a .doe file path, or create examples/test.doe.");
+                Environment.ExitCode = 1;
                 return;
             }
 
+            path = Path.GetFullPath(path);
             string source = File.ReadAllText(path);
 
             try
@@ -46,6 +68,24 @@ namespace Doe_Language
                 Parser parser = new Parser(tokensList);
                 List<Stmt> program = parser.ParseProgram();
 
+                // Check for parse errors and report them without throwing
+                if (parser.Errors.Count > 0)
+                {
+                    foreach (var error in parser.Errors)
+                    {
+                        Console.Error.WriteLine($"Parse error at {error.Line}:{error.Column} near '{error.Lexeme}': {error.Message}");
+                    }
+
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                if (HasFlag(args, "--check"))
+                {
+                    Console.WriteLine("Syntax OK: " + path);
+                    return;
+                }
+
                 DebuggerSession? debugger = null;
                 if (HasFlag(args, "--debug"))
                 {
@@ -61,16 +101,49 @@ namespace Doe_Language
                 }
 
                 Interpreter interpreter = new Interpreter(debugger, silentOutput);
-                interpreter.ExecuteProgram(program);
+                interpreter.ExecuteProgram(program, path);
             }
             catch (OperationCanceledException ex)
             {
                 Console.WriteLine(ex.Message);
+                Environment.ExitCode = 1;
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine("Doe runtime error: " + ex.Message);
+                Environment.ExitCode = 1;
             }
+        }
+
+        private static void PrintHelp()
+        {
+            Console.WriteLine("Dough " + RuntimeVersion);
+            Console.WriteLine("Usage: dough [options] <file>");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine("  --help, -h        Show this help text.");
+            Console.WriteLine("  --version         Show the Dough runtime version.");
+            Console.WriteLine("  --runtime-info    Show runtime/framework information.");
+            Console.WriteLine("  --check           Parse the file and exit without executing it.");
+            Console.WriteLine("  --tokens          Print lexer tokens.");
+            Console.WriteLine("  --debug           Start the debugger.");
+            Console.WriteLine("  --step            Start debugger in step mode.");
+            Console.WriteLine("  --break <lines>   Comma-separated breakpoint lines.");
+            Console.WriteLine("  --silent          Suppress normal Print output.");
+            Console.WriteLine("  --verbose         Force Print output on.");
+            Console.WriteLine();
+            Console.WriteLine("Input path resolution:");
+            Console.WriteLine("  - exact file path");
+            Console.WriteLine("  - path without extension (.doe/.dough)");
+            Console.WriteLine("  - fallback: test.doe, examples/test.doe, Lexing/test.doe");
+        }
+
+        private static void PrintRuntimeInfo()
+        {
+            Console.WriteLine("Dough " + RuntimeVersion);
+            Console.WriteLine("Framework: " + RuntimeInformation.FrameworkDescription);
+            Console.WriteLine("OS: " + RuntimeInformation.OSDescription);
+            Console.WriteLine("Base directory: " + AppContext.BaseDirectory);
         }
 
         private static bool HasFlag(string[] args, string flag)
@@ -126,9 +199,22 @@ namespace Doe_Language
         {
             for (int i = 0; i < args.Length; i++)
             {
-                if (!args[i].StartsWith("--", StringComparison.Ordinal) && File.Exists(args[i]))
+                string arg = args[i];
+                if (ConsumesValue(arg))
                 {
-                    return args[i];
+                    i++;
+                    continue;
+                }
+
+                if (arg.StartsWith("--", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                string? resolved = ResolveExplicitPath(arg);
+                if (resolved != null)
+                {
+                    return resolved;
                 }
             }
 
@@ -145,6 +231,33 @@ namespace Doe_Language
 
             string lexingPath = Path.Combine("Lexing", "test.doe");
             return File.Exists(lexingPath) ? lexingPath : null;
+        }
+
+        private static bool ConsumesValue(string arg)
+        {
+            return string.Equals(arg, "--break", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string? ResolveExplicitPath(string arg)
+        {
+            if (File.Exists(arg))
+            {
+                return arg;
+            }
+
+            if (Path.HasExtension(arg))
+            {
+                return null;
+            }
+
+            string doe = arg + ".doe";
+            if (File.Exists(doe))
+            {
+                return doe;
+            }
+
+            string dough = arg + ".dough";
+            return File.Exists(dough) ? dough : null;
         }
     }
 
@@ -183,6 +296,7 @@ namespace Doe_Language
 
         Equal,
         EqualEqual,
+        TripleEqual,
         EqualGreater,
         ShiftRight,
         ShiftLeft,
@@ -198,6 +312,7 @@ namespace Doe_Language
 
         
         If,
+        Unless,
         Elif,
         Else,
         Otherwise,
@@ -206,6 +321,8 @@ namespace Doe_Language
         Default,
         Def,
         Import,
+        With,
+        New,
         Break,
         Return,
         Then,
@@ -230,7 +347,9 @@ namespace Doe_Language
         Null,
         NewLine,
 
-        Eof
+        Eof,
+
+        Hahafuckyou
     }
 
     public sealed class Token
@@ -262,6 +381,7 @@ namespace Doe_Language
         private static readonly Dictionary<string, TokenType> Keywords = new Dictionary<string, TokenType>(StringComparer.OrdinalIgnoreCase)
         {
             { "if", TokenType.If },
+            { "unless", TokenType.Unless },
             { "elif", TokenType.Elif },
             { "else", TokenType.Else },
             { "otherwise", TokenType.Otherwise },
@@ -270,6 +390,8 @@ namespace Doe_Language
             { "default", TokenType.Default },
             { "def", TokenType.Def },
             { "import", TokenType.Import },
+            { "with", TokenType.With },
+            { "new", TokenType.New },
             { "break", TokenType.Break },
             { "return", TokenType.Return },
             { "then", TokenType.Then },
@@ -438,7 +560,13 @@ namespace Doe_Language
                         return;
                     }
 
-                    AddToken(Match('=') ? TokenType.EqualEqual : TokenType.Equal);
+                    if (Match('='))
+                    {
+                        AddToken(Match('=') ? TokenType.TripleEqual : TokenType.EqualEqual);
+                        return;
+                    }
+
+                    AddToken(TokenType.Equal);
                     return;
                 case '@':
                     ReadBooleanLiteral();

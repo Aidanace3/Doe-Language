@@ -1,0 +1,58 @@
+
+(*Conn:) awaitval(IsConnected;)
+{
+    if(IsConnected == @true)::then {
+        (*Auth:) awaitval(Token;)
+        {
+            if(Token != null)::then {
+                
+                (*Perm:) awaitval(Role;)
+                {
+                    
+                    if(Role == "Admin")::then {
+                        
+                        (*Crypt:) awaitval(Key;)
+                        {
+
+                            // This is the only place we can safely execute the Print
+                            (*Exec:) awaitval(Command;)
+                            {
+                                // BLOCK 3: Final Execution
+                                if(Command == "RUN")::then {
+                                    Print("SYSTEM_ACCESS_GRANTED")
+                                }else::then {
+                                    Print("EXEC_DENIED")
+                                }
+                            }
+                            yield("RUN" >> *Exec)
+                        }
+                        yield("SECURE_KEY" >> *Crypt)
+                        
+                    }else::then {
+                        Print("ROLE_INVALID")
+                    }
+                }
+                yield("Admin" >> *Perm)
+                
+            }else::then {
+                Print("AUTH_FAIL")
+            }
+        }
+        yield("VALID_TOKEN" >> *Auth)
+        
+    }else::then {
+        // BLOCK 1: Root Failure
+        Print("OFFLINE")
+    }
+}
+
+// block of fuck you 
+yield(@true >> *Conn)
+
+
+
+
+
+
+
+

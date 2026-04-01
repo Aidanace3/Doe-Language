@@ -1,0 +1,6 @@
+str imported_message = "hello from greeter"
+
+def greet(name)
+{
+    return imported_message + " :: " + name
+}

@@ -1,0 +1,6 @@
+with plugin:Doe.WindowsPlugin.Sample
+
+Print("platform = " + Win_Platform())
+Print("is_windows = " + Win_IsWindows())
+Print("machine = " + Win_MachineName())
+Print("title = " + Win_ComposeWindowTitle("Doe Test"))

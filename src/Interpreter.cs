@@ -1,6 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
+using Doe.PluginSdk;
 
 namespace Doe_Language
 {
@@ -236,10 +241,44 @@ namespace Doe_Language
 
     public sealed class Interpreter
     {
+        private sealed class DoePluginRegistry : IDoePluginRegistry
+        {
+            private readonly Dictionary<string, DoePluginFunction> _functions;
+
+            public DoePluginRegistry(Dictionary<string, DoePluginFunction> functions)
+            {
+                _functions = functions;
+            }
+
+            public void RegisterFunction(string name, DoePluginFunction handler)
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    throw new InvalidOperationException("Plugin function name cannot be empty.");
+                }
+
+                if (handler == null)
+                {
+                    throw new InvalidOperationException("Plugin function handler cannot be null.");
+                }
+
+                if (_functions.ContainsKey(name))
+                {
+                    throw new InvalidOperationException("Plugin function '" + name + "' is already registered.");
+                }
+
+                _functions[name] = handler;
+            }
+        }
+
         private readonly RuntimeEnvironment _globals = new RuntimeEnvironment(null);
         private readonly Dictionary<string, PointAwaitHandler> _points = new Dictionary<string, PointAwaitHandler>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, int> _pointDispatchCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DoePluginFunction> _pluginFunctions = new Dictionary<string, DoePluginFunction>(StringComparer.OrdinalIgnoreCase);
         private readonly Stack<string> _pointContext = new Stack<string>();
+        private readonly Stack<string> _modulePathStack = new Stack<string>();
+        private readonly HashSet<string> _loadedModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _loadedPlugins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly DebuggerSession? _debugger;
         private readonly bool _silentOutput;
         private int _functionDepth;
@@ -251,25 +290,9 @@ namespace Doe_Language
             _silentOutput = silentOutput;
         }
 
-        public void ExecuteProgram(List<Stmt> statements)
+        public void ExecuteProgram(List<Stmt> statements, string? sourcePath = null)
         {
-            RuntimeEnvironment env = _globals;
-            for (int i = 0; i < statements.Count; i++)
-            {
-                if (statements[i] is FunctionStmt function)
-                {
-                    _globals.DefineFunction(function.Name, function);
-                    continue;
-                }
-
-                Execute(statements[i], env);
-            }
-
-            if (_globals.TryGetFunction("Main", out FunctionStmt? main) && main != null)
-            {
-                InvokeUserFunction(main, new List<object?>(), env);
-            }
-
+            ExecuteModule(statements, _globals, sourcePath, true);
             WarnUncalledPoints();
         }
 
@@ -279,6 +302,7 @@ namespace Doe_Language
 
             if (stmt is ImportStmt)
             {
+                ImportModules(((ImportStmt)stmt).Module, env, stmt.Line);
                 return null;
             }
 
@@ -346,7 +370,7 @@ namespace Doe_Language
                 for (int i = 0; i < ifCaseStmt.Cases.Count; i++)
                 {
                     object? candidate = Evaluate(ifCaseStmt.Cases[i].Match, env);
-                    if (AreEqual(subject, candidate))
+                    if (MatchesCase(subject, candidate))
                     {
                         Execute(ifCaseStmt.Cases[i].Body, env);
                         return null;
@@ -432,11 +456,12 @@ namespace Doe_Language
                 return Evaluate(exprStmt.Expression, env);
             }
 
-            if (stmt is ConfStmt confStmt)
+            if (stmt is ConfigDeclStmt configStmt)
             {
-                object? value = Evaluate(confStmt.Value, env);
-                object? target = env.Get(confStmt.TargetName, confStmt.TargetToken);
-                ApplyConf(target, confStmt.PropertyName, value, confStmt.TargetToken);
+                RuntimeEnvironment configScope = new RuntimeEnvironment(env);
+                ExecuteBlock(configStmt.Body, configScope);
+                Dictionary<string, object?> values = configScope.SnapshotLocalValues();
+                env.Define(configStmt.Name, values, false, "Dict");
                 return null;
             }
 
@@ -454,7 +479,19 @@ namespace Doe_Language
             if (stmt is YieldStmt yieldStmt)
             {
                 object? value = Evaluate(yieldStmt.Value, env);
-                DispatchPoint(yieldStmt.PointName, value, yieldStmt.YieldToken, yieldStmt.AliasName);
+                string pointName = yieldStmt.PointName;
+                if (string.Equals(pointName, "this", StringComparison.OrdinalIgnoreCase))
+                {
+                    string? currentPoint = GetCurrentPointName();
+                    if (string.IsNullOrWhiteSpace(currentPoint))
+                    {
+                        throw new InvalidOperationException("Point reference 'this' is only valid while running inside a point handler at " + yieldStmt.YieldToken.Line + ":" + yieldStmt.YieldToken.Column + ".");
+                    }
+
+                    pointName = currentPoint;
+                }
+
+                DispatchPoint(pointName, value, yieldStmt.YieldToken, yieldStmt.AliasName);
                 return value;
             }
 
@@ -483,6 +520,466 @@ namespace Doe_Language
 
                 Execute(statements[i], env);
             }
+        }
+
+        private void ExecuteModule(List<Stmt> statements, RuntimeEnvironment env, string? sourcePath, bool invokeMain)
+        {
+            string? normalizedSourcePath = string.IsNullOrWhiteSpace(sourcePath)
+                ? null
+                : Path.GetFullPath(sourcePath);
+
+            if (!string.IsNullOrWhiteSpace(normalizedSourcePath))
+            {
+                _modulePathStack.Push(normalizedSourcePath);
+            }
+
+            try
+            {
+                ExecuteBlock(statements, env);
+
+                if (invokeMain && _globals.TryGetFunction("Main", out FunctionStmt? main) && main != null)
+                {
+                    InvokeUserFunction(main, new List<object?>(), env);
+                }
+            }
+            finally
+            {
+                if (!string.IsNullOrWhiteSpace(normalizedSourcePath))
+                {
+                    _modulePathStack.Pop();
+                }
+            }
+        }
+
+        private void ImportModules(string rawModuleSpec, RuntimeEnvironment env, int line)
+        {
+            string[] moduleSpecs = rawModuleSpec.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < moduleSpecs.Length; i++)
+            {
+                string moduleSpec = moduleSpecs[i].Trim();
+                if (moduleSpec.Length == 0)
+                {
+                    continue;
+                }
+
+                ImportSingleModule(moduleSpec, env, line);
+            }
+        }
+
+        private void ImportSingleModule(string rawModuleSpec, RuntimeEnvironment env, int line)
+        {
+            string moduleSpec = NormalizeImportSpec(rawModuleSpec);
+            if (IsPluginImportSpec(moduleSpec))
+            {
+                LoadPluginAssembly(moduleSpec, line);
+                return;
+            }
+
+            string fullPath = ResolveImportPath(moduleSpec, line);
+            if (_loadedModules.Contains(fullPath))
+            {
+                return;
+            }
+
+            _loadedModules.Add(fullPath);
+            try
+            {
+                string source = File.ReadAllText(fullPath);
+                Lexer lexer = new Lexer(source);
+                IReadOnlyList<Token> tokens = lexer.Tokenize();
+                Parser parser = new Parser(tokens);
+                List<Stmt> statements = parser.ParseProgram();
+
+                if (parser.Errors.Count > 0)
+                {
+                    throw new InvalidOperationException("Imported module '" + fullPath + "' contains parse errors.");
+                }
+
+                ExecuteModule(statements, env, fullPath, false);
+            }
+            catch
+            {
+                _loadedModules.Remove(fullPath);
+                throw;
+            }
+        }
+
+        private void LoadPluginAssembly(string moduleSpec, int line)
+        {
+            string pluginSpec = NormalizePluginSpec(moduleSpec);
+            string assemblyPath = ResolvePluginPath(pluginSpec, line);
+            if (_loadedPlugins.Contains(assemblyPath))
+            {
+                return;
+            }
+
+            Assembly assembly = Assembly.LoadFrom(assemblyPath);
+            if (TryRegisterConventionPlugin(assembly))
+            {
+                _loadedPlugins.Add(assemblyPath);
+                return;
+            }
+
+            Type[] pluginTypes = GetSdkPluginTypes(assembly);
+
+            if (pluginTypes.Length == 0)
+            {
+                throw new InvalidOperationException("Plugin assembly '" + assemblyPath + "' does not contain an IDoePlugin implementation.");
+            }
+
+            DoePluginRegistry registry = new DoePluginRegistry(_pluginFunctions);
+            for (int i = 0; i < pluginTypes.Length; i++)
+            {
+                IDoePlugin? plugin = Activator.CreateInstance(pluginTypes[i]) as IDoePlugin;
+                if (plugin == null)
+                {
+                    throw new InvalidOperationException("Unable to create plugin type '" + pluginTypes[i].FullName + "'.");
+                }
+
+                plugin.Register(registry);
+            }
+
+            _loadedPlugins.Add(assemblyPath);
+        }
+
+        private bool TryRegisterConventionPlugin(Assembly assembly)
+        {
+            string assemblyName = assembly.GetName().Name ?? string.Empty;
+            string[] candidateTypeNames =
+            {
+                assemblyName + ".PluginFunctions",
+                assemblyName + ".PluginExports",
+                "PluginFunctions",
+                "PluginExports"
+            };
+
+            for (int i = 0; i < candidateTypeNames.Length; i++)
+            {
+                Type? type = assembly.GetType(candidateTypeNames[i], throwOnError: false, ignoreCase: false);
+                if (type == null)
+                {
+                    continue;
+                }
+
+                RegisterConventionMethods(type);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void RegisterConventionMethods(Type type)
+        {
+            MethodInfo[] methods = type.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+            int registeredCount = 0;
+
+            for (int i = 0; i < methods.Length; i++)
+            {
+                MethodInfo method = methods[i];
+                if (method.IsSpecialName)
+                {
+                    continue;
+                }
+
+                string name = method.Name;
+                if (_pluginFunctions.ContainsKey(name))
+                {
+                    throw new InvalidOperationException("Plugin function '" + name + "' is already registered.");
+                }
+
+                _pluginFunctions[name] = args => InvokeConventionPluginMethod(method, args);
+                registeredCount++;
+            }
+
+            if (registeredCount == 0)
+            {
+                throw new InvalidOperationException("Convention plugin type '" + type.FullName + "' does not define any public static methods.");
+            }
+        }
+
+        private static Type[] GetSdkPluginTypes(Assembly assembly)
+        {
+            try
+            {
+                return assembly
+                    .GetTypes()
+                    .Where(static type => !type.IsAbstract && typeof(IDoePlugin).IsAssignableFrom(type))
+                    .ToArray();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                return ex.Types
+                    .Where(static type => type != null && !type.IsAbstract && typeof(IDoePlugin).IsAssignableFrom(type))
+                    .Cast<Type>()
+                    .ToArray();
+            }
+        }
+
+        private static object? InvokeConventionPluginMethod(MethodInfo method, IReadOnlyList<object?> args)
+        {
+            ParameterInfo[] parameters = method.GetParameters();
+            object?[] callArgs = new object?[parameters.Length];
+
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (i < args.Count)
+                {
+                    callArgs[i] = ConvertPluginArgument(args[i], parameters[i].ParameterType);
+                    continue;
+                }
+
+                if (parameters[i].HasDefaultValue)
+                {
+                    callArgs[i] = parameters[i].DefaultValue;
+                    continue;
+                }
+
+                throw new InvalidOperationException("Plugin method '" + method.Name + "' expects " + parameters.Length + " arguments.");
+            }
+
+            return method.Invoke(null, callArgs);
+        }
+
+        private static object? ConvertPluginArgument(object? value, Type targetType)
+        {
+            if (value == null)
+            {
+                return null;
+            }
+
+            Type effectiveTarget = Nullable.GetUnderlyingType(targetType) ?? targetType;
+            if (effectiveTarget.IsInstanceOfType(value))
+            {
+                return value;
+            }
+
+            if (effectiveTarget == typeof(string))
+            {
+                return ToDoeString(value);
+            }
+
+            if (effectiveTarget == typeof(int))
+            {
+                return Convert.ToInt32(value, CultureInfo.InvariantCulture);
+            }
+
+            if (effectiveTarget == typeof(double))
+            {
+                return Convert.ToDouble(value, CultureInfo.InvariantCulture);
+            }
+
+            if (effectiveTarget == typeof(bool))
+            {
+                if (value is bool b)
+                {
+                    return b;
+                }
+
+                if (value is string s && bool.TryParse(s, out bool parsedBool))
+                {
+                    return parsedBool;
+                }
+
+                return Convert.ToDouble(value, CultureInfo.InvariantCulture) != 0;
+            }
+
+            return Convert.ChangeType(value, effectiveTarget, CultureInfo.InvariantCulture);
+        }
+
+        private string ResolveImportPath(string moduleSpec, int line)
+        {
+            List<string> candidates = new List<string>();
+            AddImportCandidates(candidates, moduleSpec);
+
+            string dottedCandidate = moduleSpec.Replace('.', Path.DirectorySeparatorChar);
+            if (!string.Equals(dottedCandidate, moduleSpec, StringComparison.Ordinal))
+            {
+                AddImportCandidates(candidates, dottedCandidate);
+            }
+
+            List<string> searchRoots = BuildImportRoots();
+            for (int i = 0; i < searchRoots.Count; i++)
+            {
+                string root = searchRoots[i];
+                for (int c = 0; c < candidates.Count; c++)
+                {
+                    string candidate = Path.IsPathRooted(candidates[c])
+                        ? candidates[c]
+                        : Path.Combine(root, candidates[c]);
+
+                    if (File.Exists(candidate))
+                    {
+                        return Path.GetFullPath(candidate);
+                    }
+                }
+            }
+
+            throw new InvalidOperationException("Unable to resolve import '" + moduleSpec + "' at line " + line + ".");
+        }
+
+        private string ResolvePluginPath(string pluginSpec, int line)
+        {
+            List<string> candidates = new List<string>();
+            AddPluginCandidates(candidates, pluginSpec);
+
+            List<string> roots = BuildPluginRoots();
+            for (int i = 0; i < roots.Count; i++)
+            {
+                for (int c = 0; c < candidates.Count; c++)
+                {
+                    string candidate = Path.IsPathRooted(candidates[c])
+                        ? candidates[c]
+                        : Path.Combine(roots[i], candidates[c]);
+
+                    if (File.Exists(candidate))
+                    {
+                        return Path.GetFullPath(candidate);
+                    }
+                }
+            }
+
+            throw new InvalidOperationException("Unable to resolve plugin '" + pluginSpec + "' at line " + line + ".");
+        }
+
+        private List<string> BuildImportRoots()
+        {
+            List<string> roots = new List<string>();
+            AddImportRoot(roots, Directory.GetCurrentDirectory());
+
+            if (_modulePathStack.Count > 0)
+            {
+                string? currentModuleDir = Path.GetDirectoryName(_modulePathStack.Peek());
+                if (!string.IsNullOrWhiteSpace(currentModuleDir))
+                {
+                    AddImportRoot(roots, currentModuleDir);
+                    AddImportRoot(roots, Path.Combine(currentModuleDir, "lib"));
+                    AddImportRoot(roots, Path.Combine(currentModuleDir, "libs"));
+                    AddImportRoot(roots, Path.Combine(currentModuleDir, "library"));
+                    AddImportRoot(roots, Path.Combine(currentModuleDir, "libraries"));
+                }
+            }
+
+            return roots;
+        }
+
+        private List<string> BuildPluginRoots()
+        {
+            List<string> roots = BuildImportRoots();
+            AddImportRoot(roots, AppContext.BaseDirectory);
+            AddImportRoot(roots, Path.Combine(AppContext.BaseDirectory, "plugins"));
+            AddImportRoot(roots, Path.Combine(AppContext.BaseDirectory, "plugin"));
+
+            string[] baseRoots = roots.ToArray();
+            for (int i = 0; i < baseRoots.Length; i++)
+            {
+                AddImportRoot(roots, Path.Combine(baseRoots[i], "plugins"));
+                AddImportRoot(roots, Path.Combine(baseRoots[i], "plugin"));
+            }
+
+            return roots;
+        }
+
+        private static void AddImportRoot(List<string> roots, string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            string fullPath = Path.GetFullPath(path);
+            for (int i = 0; i < roots.Count; i++)
+            {
+                if (string.Equals(roots[i], fullPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+            }
+
+            roots.Add(fullPath);
+        }
+
+        private static void AddImportCandidates(List<string> candidates, string moduleSpec)
+        {
+            if (string.IsNullOrWhiteSpace(moduleSpec))
+            {
+                return;
+            }
+
+            AddImportCandidate(candidates, moduleSpec);
+
+            if (!Path.HasExtension(moduleSpec))
+            {
+                AddImportCandidate(candidates, moduleSpec + ".doe");
+                AddImportCandidate(candidates, moduleSpec + ".dough");
+                AddImportCandidate(candidates, Path.Combine(moduleSpec, "index.doe"));
+                AddImportCandidate(candidates, Path.Combine(moduleSpec, "index.dough"));
+            }
+        }
+
+        private static void AddPluginCandidates(List<string> candidates, string pluginSpec)
+        {
+            if (string.IsNullOrWhiteSpace(pluginSpec))
+            {
+                return;
+            }
+
+            AddImportCandidate(candidates, pluginSpec);
+            if (!pluginSpec.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            {
+                AddImportCandidate(candidates, pluginSpec + ".dll");
+                AddImportCandidate(candidates, Path.Combine(pluginSpec, pluginSpec + ".dll"));
+            }
+
+            string dottedPath = pluginSpec.Replace('.', Path.DirectorySeparatorChar);
+            if (!string.Equals(dottedPath, pluginSpec, StringComparison.Ordinal))
+            {
+                AddImportCandidate(candidates, dottedPath + ".dll");
+                AddImportCandidate(candidates, Path.Combine(dottedPath, pluginSpec + ".dll"));
+            }
+        }
+
+        private static void AddImportCandidate(List<string> candidates, string candidate)
+        {
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (string.Equals(candidates[i], candidate, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+            }
+
+            candidates.Add(candidate);
+        }
+
+        private static string NormalizeImportSpec(string rawModuleSpec)
+        {
+            string moduleSpec = rawModuleSpec.Trim();
+            moduleSpec = Regex.Replace(moduleSpec, @"\s*->\s*", "->");
+            moduleSpec = Regex.Replace(moduleSpec, @"\s*([.:/\\])\s*", "$1");
+            int aliasSeparator = moduleSpec.IndexOf("->", StringComparison.Ordinal);
+            if (aliasSeparator >= 0)
+            {
+                moduleSpec = moduleSpec.Substring(0, aliasSeparator).Trim();
+            }
+
+            if (moduleSpec.Length >= 2 &&
+                ((moduleSpec[0] == '"' && moduleSpec[moduleSpec.Length - 1] == '"') ||
+                 (moduleSpec[0] == '\'' && moduleSpec[moduleSpec.Length - 1] == '\'')))
+            {
+                moduleSpec = moduleSpec.Substring(1, moduleSpec.Length - 2);
+            }
+
+            return moduleSpec;
+        }
+
+        private static bool IsPluginImportSpec(string moduleSpec)
+        {
+            return moduleSpec.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizePluginSpec(string moduleSpec)
+        {
+            return moduleSpec.Substring("plugin:".Length).Trim();
         }
 
         private object? Evaluate(Expr expr, RuntimeEnvironment env)
@@ -616,6 +1113,12 @@ namespace Doe_Language
                             return left;
                         }
 
+                        if (left is PointReferenceValue leftPointAsShiftRight)
+                        {
+                            DispatchPointIfPresent(leftPointAsShiftRight, right, binary.Operator);
+                            return right;
+                        }
+
                         return (int)ToNumber(left, binary.Operator) >> (int)ToNumber(right, binary.Operator);
                     case TokenType.ShiftLeft:
                         if (left is PointReferenceValue leftPoint)
@@ -624,9 +1127,17 @@ namespace Doe_Language
                             return right;
                         }
 
+                        if (right is PointReferenceValue rightPointAsShiftLeft)
+                        {
+                            DispatchPointIfPresent(rightPointAsShiftLeft, left, binary.Operator);
+                            return left;
+                        }
+
                         return (int)ToNumber(left, binary.Operator) << (int)ToNumber(right, binary.Operator);
                     case TokenType.EqualEqual:
                         return AreEqual(left, right);
+                    case TokenType.TripleEqual:
+                        return AreStrictlyEqual(left, right);
                     case TokenType.Greater:
                         return ToNumber(left, binary.Operator) > ToNumber(right, binary.Operator);
                     case TokenType.GreaterEqual:
@@ -712,6 +1223,11 @@ namespace Doe_Language
                 return InvokeMin(args, at);
             }
 
+            if (string.Equals(name, "map", StringComparison.OrdinalIgnoreCase))
+            {
+                return InvokeMap(args, at);
+            }
+
             if (string.Equals(name, "exit", StringComparison.OrdinalIgnoreCase))
             {
                 if (args.Count == 0)
@@ -750,6 +1266,11 @@ namespace Doe_Language
             if (env.TryGetFunction(name, out FunctionStmt? function) && function != null)
             {
                 return InvokeUserFunction(function, args, env);
+            }
+
+            if (_pluginFunctions.TryGetValue(name, out DoePluginFunction? pluginFunction))
+            {
+                return pluginFunction(args);
             }
 
             throw new InvalidOperationException("Unknown function '" + name + "' at " + at.Line + ":" + at.Column + ".");
@@ -846,7 +1367,8 @@ namespace Doe_Language
                 pointRef = args[0] as PointReferenceValue;
                 if (pointRef == null || string.IsNullOrWhiteSpace(pointRef.Name))
                 {
-                    throw new InvalidOperationException("yield/yeild with one argument expects a point reference.");
+                    // Parser may already have dispatched when expression used shift syntax.
+                    return args[0];
                 }
             }
             else
@@ -892,53 +1414,6 @@ namespace Doe_Language
         private string? GetCurrentPointName()
         {
             return _pointContext.Count == 0 ? null : _pointContext.Peek();
-        }
-
-        private void ApplyConf(object? target, string propertyName, object? value, Token at)
-        {
-            string prop = propertyName.ToLowerInvariant();
-
-            if (target is List<object?> list)
-            {
-                if (prop == "length")
-                {
-                    int newLength = ToDoeIndexNumber(value, at);
-                    if (newLength < 0)
-                    {
-                        throw new InvalidOperationException("Array length cannot be negative at " + at.Line + ":" + at.Column + ".");
-                    }
-
-                    if (newLength < list.Count)
-                    {
-                        list.RemoveRange(newLength, list.Count - newLength);
-                    }
-                    else
-                    {
-                        while (list.Count < newLength)
-                        {
-                            list.Add(null);
-                        }
-                    }
-
-                    return;
-                }
-
-                if (prop == "lower")
-                {
-                    // Dough supports a lower-bound property in docs; runtime currently remains 1-based.
-                    return;
-                }
-
-                throw new InvalidOperationException("Unsupported array conf property '" + propertyName + "' at " + at.Line + ":" + at.Column + ".");
-            }
-
-            if (target is Dictionary<string, object?> dict)
-            {
-                dict[propertyName] = value;
-                return;
-            }
-
-            throw new InvalidOperationException("conf target must be Arr or Dict at " + at.Line + ":" + at.Column + ".");
         }
 
         private static void ValidateDictionaryValues(Dictionary<string, object?> dict, string typeName, string dictName)
@@ -988,6 +1463,39 @@ namespace Doe_Language
             }
 
             return Equals(left, right);
+        }
+
+        private static bool AreStrictlyEqual(object? left, object? right)
+        {
+            if (left == null || right == null)
+            {
+                return left == null && right == null;
+            }
+
+            if (left.GetType() != right.GetType())
+            {
+                return false;
+            }
+
+            return Equals(left, right);
+        }
+
+        private static bool MatchesCase(object? subject, object? candidate)
+        {
+            if (candidate is List<object?> list)
+            {
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (AreEqual(subject, list[i]))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            return AreEqual(subject, candidate);
         }
 
         private object? ReadIndexedValue(object? target, object? indexValue, Token at)
@@ -1228,6 +1736,43 @@ namespace Doe_Language
             }
 
             return min;
+        }
+
+        private object? InvokeMap(List<object?> args, Token at)
+        {
+            if (args.Count == 0)
+            {
+                throw new InvalidOperationException("map requires at least one argument.");
+            }
+
+            Dictionary<string, object?> source = args[0] as Dictionary<string, object?> ??
+                throw new InvalidOperationException("map expects the first argument to be a Dict/config at " + at.Line + ":" + at.Column + ".");
+
+            Dictionary<string, object?> mapped = new Dictionary<string, object?>(source, StringComparer.OrdinalIgnoreCase);
+
+            if (args.Count == 1)
+            {
+                return mapped;
+            }
+
+            if (args.Count == 2 && args[1] is Dictionary<string, object?> overlay)
+            {
+                foreach (KeyValuePair<string, object?> pair in overlay)
+                {
+                    mapped[pair.Key] = pair.Value;
+                }
+
+                return mapped;
+            }
+
+            List<object?> projected = new List<object?>();
+            for (int i = 1; i < args.Count; i++)
+            {
+                string key = ToDoeString(args[i]);
+                projected.Add(mapped.TryGetValue(key, out object? value) ? value : null);
+            }
+
+            return projected;
         }
 
         private static bool IsTruthy(object? value)

@@ -1,0 +1,76 @@
+with constants
+
+conf meta:
+{
+    str device = "Linux"
+}
+
+conf ratio:
+{
+    int x = 1080
+    int y = 960
+}
+
+str monitorpos = "horizontal"
+str orientation = "unset"
+str selected_title = "unset"
+
+new windowtype landscape: {
+    ratio.x,
+    ratio.y,
+    "Test"
+}
+
+new windowtype portrait: {
+    ratio.y,
+    ratio.x,
+    null
+}
+
+if (monitorpos == "vertical")::then
+{
+    orientation = "portrait"
+}
+else::
+{
+    orientation = "landscape"
+}
+
+unless (monitorpos == "vertical")::then
+{
+    portrait[3] = "Portrait fallback"
+}
+
+IfCase(meta.device)
+{
+    Case:(Windows, Win, Mac, Macos, Macbook, Linux):
+    {
+        selected_title = landscape[3]
+    }
+    Otherwise:
+    {
+        selected_title = "Unknown device"
+    }
+}
+
+conf title_override:
+{
+    str title = "Mapped Test"
+}
+
+dict window_base:
+{
+    int width = landscape[1]
+    int height = landscape[2]
+    str title = landscape[3]
+}
+
+merged_window = map(window_base, title_override)
+arr[str] selected_values = map(merged_window, "width", "title")
+
+Print("orientation = " + orientation)
+Print("selected_title = " + selected_title)
+Print("landscape_width = " + landscape[1])
+Print("portrait_title = " + portrait[3])
+Print("mapped_title = " + merged_window.title)
+Print("projected_title = " + selected_values[2])

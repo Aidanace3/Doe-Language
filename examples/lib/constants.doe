@@ -1,0 +1,6 @@
+int import_magic = 42
+
+def double_value(n)
+{
+    return n + n
+}
