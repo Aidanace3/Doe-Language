@@ -1,0 +1,147 @@
+with "../lib/Dough-2d.doe"
+
+Print("module = " + dough2d_name)
+Print("version = " + dough2d_version())
+
+conf meta:
+{
+    str device = "Windows"
+}
+
+conf ratio:
+{
+    int x = 720
+    int y = 420
+}
+
+str monitorpos = "horizontal"
+
+new windowtype landscape: {
+    ratio.x,
+    ratio.y,
+    "Dough-2d landscape",
+    24,
+    28,
+    36
+}
+
+new windowtype portrait: {
+    ratio.y,
+    ratio.x,
+    "Dough-2d portrait",
+    36,
+    34,
+    24
+}
+
+new windowtype dynamic: {
+    ratio.x,
+    ratio.y,
+    "Dough-2d dynamic",
+    18,
+    22,
+    30
+}
+
+dict landscape_window:
+{
+    int x = landscape[1]
+    int y = landscape[2]
+    str title = landscape[3]
+    int red = landscape[4]
+    int green = landscape[5]
+    int blue = landscape[6]
+}
+
+dict portrait_window:
+{
+    int x = portrait[1]
+    int y = portrait[2]
+    str title = portrait[3]
+    int red = portrait[4]
+    int green = portrait[5]
+    int blue = portrait[6]
+}
+
+dict dynamic_window:
+{
+    int x = dynamic[1]
+    int y = dynamic[2]
+    str title = dynamic[3]
+    int red = dynamic[4]
+    int green = dynamic[5]
+    int blue = dynamic[6]
+}
+
+selected_window = map(window_defaults)
+
+IfCase(meta.device)
+{
+    Case:(Windows, Win, Mac, Macos, Macbook, Linux):
+    {
+        if (monitorpos == "vertical")::then
+        {
+            selected_window = map(selected_window, portrait_window)
+        }
+        else::
+        {
+            selected_window = map(selected_window, landscape_window)
+        }
+    }
+    Otherwise:
+    {
+        selected_window = map(selected_window, dynamic_window)
+    }
+}
+
+unless (monitorpos == "vertical")::then
+{
+    Print("using landscape profile")
+}
+
+int main_window = dough2d_window_from(selected_window)
+
+title_label_conf = map(label_defaults)
+title_label_conf.text = "Dough-2d ready"
+title_label_conf.width = 300
+int title_label = dough2d_label_from(main_window, title_label_conf)
+
+button_conf = map(button_defaults)
+button_conf.text = "Ping"
+int button_id = dough2d_button_from(main_window, button_conf)
+
+sim_conf = map(physics_defaults)
+ball_conf = map(body_defaults)
+ball_conf.x = 80
+int world_id = dough2d_world_from(sim_conf)
+int ball_id = dough2d_body_from(world_id, ball_conf)
+
+frame = 0
+as(@true):
+{
+    frame = frame + 1
+
+    dough2d_step_from(world_id, sim_conf)
+    body = dough2d_body_info(ball_id)
+    dough2d_set_text(title_label, "ball x=" + body.x + " y=" + body.y)
+
+    str event_name = dough2d_last_event(main_window)
+    if (event_name == "button:" + button_id)::then
+    {
+        dough2d_velocity(ball_id, 120, -220)
+        dough2d_clear_event(main_window)
+    }
+
+    if (event_name == "closed")::then
+    {
+        break
+    }
+
+    if (frame > 900)::then
+    {
+        break
+    }
+}
+
+dough2d_window_close(main_window)
+Print("demo finished")

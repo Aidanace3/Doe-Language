@@ -1,0 +1,169 @@
+with "../plugins/Dough-2d/Dough-2d.dll"
+
+str dough2d_name = "Dough-2d"
+str dough2d_focus = "windows + gui + 2d physics"
+
+conf window_defaults:
+{
+    int x = 960
+    int y = 540
+    str title = "Dough-2d window"
+    int red = 24
+    int green = 28
+    int blue = 36
+}
+
+conf label_defaults:
+{
+    str text = "label"
+    int x = 24
+    int y = 24
+    int width = 180
+    int height = 24
+}
+
+conf button_defaults:
+{
+    str text = "button"
+    int x = 24
+    int y = 64
+    int width = 120
+    int height = 32
+}
+
+conf physics_defaults:
+{
+    int gravity_x = 0
+    int gravity_y = 98
+    int floor_y = 320
+    flt step = 0.016
+    flt bounce = 0.82
+}
+
+conf body_defaults:
+{
+    int x = 60
+    int y = 20
+    int vx = 120
+    int vy = 0
+    int mass = 1
+    int radius = 12
+    int static = 0
+}
+
+def dough2d_version()
+{
+    return __dough2d_version()
+}
+
+def dough2d_is_windows()
+{
+    return __dough2d_is_windows()
+}
+
+def dough2d_window(title, width, height)
+{
+    return __dough2d_window_create(title, width, height)
+}
+
+def dough2d_window_from(window_config)
+{
+    int window_id = __dough2d_window_create(window_config.title, window_config.x, window_config.y)
+    __dough2d_window_set_background(window_id, window_config.red, window_config.green, window_config.blue)
+    return window_id
+}
+
+def dough2d_window_show(window_id)
+{
+    return __dough2d_window_show(window_id)
+}
+
+def dough2d_window_close(window_id)
+{
+    return __dough2d_window_close(window_id)
+}
+
+def dough2d_window_background(window_id, r, g, b)
+{
+    return __dough2d_window_set_background(window_id, r, g, b)
+}
+
+def dough2d_window_info(window_id)
+{
+    return __dough2d_window_get_info(window_id)
+}
+
+def dough2d_label(window_id, text, x, y, width, height)
+{
+    return __dough2d_gui_add_label(window_id, text, x, y, width, height)
+}
+
+def dough2d_label_from(window_id, label_config)
+{
+    return __dough2d_gui_add_label(window_id, label_config.text, label_config.x, label_config.y, label_config.width, label_config.height)
+}
+
+def dough2d_button(window_id, text, x, y, width, height)
+{
+    return __dough2d_gui_add_button(window_id, text, x, y, width, height)
+}
+
+def dough2d_button_from(window_id, button_config)
+{
+    return __dough2d_gui_add_button(window_id, button_config.text, button_config.x, button_config.y, button_config.width, button_config.height)
+}
+
+def dough2d_set_text(control_id, text)
+{
+    return __dough2d_gui_set_text(control_id, text)
+}
+
+def dough2d_last_event(window_id)
+{
+    return __dough2d_gui_get_last_event(window_id)
+}
+
+def dough2d_clear_event(window_id)
+{
+    return __dough2d_gui_clear_last_event(window_id)
+}
+
+def dough2d_world(gravity_x, gravity_y)
+{
+    return __dough2d_physics_create_world(gravity_x, gravity_y)
+}
+
+def dough2d_world_from(physics_config)
+{
+    return __dough2d_physics_create_world(physics_config.gravity_x, physics_config.gravity_y)
+}
+
+def dough2d_body(world_id, x, y, vx, vy, mass, radius, is_static)
+{
+    return __dough2d_physics_add_body(world_id, x, y, vx, vy, mass, radius, is_static)
+}
+
+def dough2d_body_from(world_id, body_config)
+{
+    return __dough2d_physics_add_body(world_id, body_config.x, body_config.y, body_config.vx, body_config.vy, body_config.mass, body_config.radius, body_config.static)
+}
+
+def dough2d_step(world_id, delta_seconds, floor_y, bounce)
+{
+    return __dough2d_physics_step(world_id, delta_seconds, floor_y, bounce)
+}
+
+def dough2d_step_from(world_id, physics_config)
+{
+    return __dough2d_physics_step(world_id, physics_config.step, physics_config.floor_y, physics_config.bounce)
+}
+
+def dough2d_body_info(body_id)
+{
+    return __dough2d_physics_get_body(body_id)
+}
+
+def dough2d_velocity(body_id, vx, vy)
+{
+    return __dough2d_physics_set_velocity(body_id, vx, vy)
+}

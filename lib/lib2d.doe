@@ -1,0 +1,119 @@
+with "./Dough-2d.doe"
+
+str lib2d_name = dough2d_name
+str lib2d_focus = dough2d_focus
+
+def lib2d_version()
+{
+    return dough2d_version()
+}
+
+def lib2d_is_windows()
+{
+    return dough2d_is_windows()
+}
+
+def lib2d_window(title, width, height)
+{
+    return dough2d_window(title, width, height)
+}
+
+def lib2d_window_from(window_config)
+{
+    return dough2d_window_from(window_config)
+}
+
+def lib2d_window_show(window_id)
+{
+    return dough2d_window_show(window_id)
+}
+
+def lib2d_window_close(window_id)
+{
+    return dough2d_window_close(window_id)
+}
+
+def lib2d_window_background(window_id, r, g, b)
+{
+    return dough2d_window_background(window_id, r, g, b)
+}
+
+def lib2d_window_info(window_id)
+{
+    return dough2d_window_info(window_id)
+}
+
+def lib2d_label(window_id, text, x, y, width, height)
+{
+    return dough2d_label(window_id, text, x, y, width, height)
+}
+
+def lib2d_label_from(window_id, label_config)
+{
+    return dough2d_label_from(window_id, label_config)
+}
+
+def lib2d_button(window_id, text, x, y, width, height)
+{
+    return dough2d_button(window_id, text, x, y, width, height)
+}
+
+def lib2d_button_from(window_id, button_config)
+{
+    return dough2d_button_from(window_id, button_config)
+}
+
+def lib2d_set_text(control_id, text)
+{
+    return dough2d_set_text(control_id, text)
+}
+
+def lib2d_last_event(window_id)
+{
+    return dough2d_last_event(window_id)
+}
+
+def lib2d_clear_event(window_id)
+{
+    return dough2d_clear_event(window_id)
+}
+
+def lib2d_world(gravity_x, gravity_y)
+{
+    return dough2d_world(gravity_x, gravity_y)
+}
+
+def lib2d_world_from(physics_config)
+{
+    return dough2d_world_from(physics_config)
+}
+
+def lib2d_body(world_id, x, y, vx, vy, mass, radius, is_static)
+{
+    return dough2d_body(world_id, x, y, vx, vy, mass, radius, is_static)
+}
+
+def lib2d_body_from(world_id, body_config)
+{
+    return dough2d_body_from(world_id, body_config)
+}
+
+def lib2d_step(world_id, delta_seconds, floor_y, bounce)
+{
+    return dough2d_step(world_id, delta_seconds, floor_y, bounce)
+}
+
+def lib2d_step_from(world_id, physics_config)
+{
+    return dough2d_step_from(world_id, physics_config)
+}
+
+def lib2d_body_info(body_id)
+{
+    return dough2d_body_info(body_id)
+}
+
+def lib2d_velocity(body_id, vx, vy)
+{
+    return dough2d_velocity(body_id, vx, vy)
+}

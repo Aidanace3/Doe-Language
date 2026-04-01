@@ -1,378 +1,148 @@
-# Doe Language Documentation
+# Dough
 
-## current V: Dough_V0.9.0
+Dough is the Doe Language runtime, tooling, and release repo.
 
-## NOTE: [Install here](https://github.com/Aidanace3/Dough)
+Current runtime version: `1.0.0`
 
-## Running Dough Programs
+This repo contains:
 
-- Direct command: `.\dough.cmd examples\test.doe`
-- PowerShell wrapper: `.\dough.ps1 examples\test.doe`
-- Silent mode: `.\dough.cmd --silent examples\test.doe`
-- Verbose mode: `.\dough.cmd --verbose examples\test.doe`
-- Syntax check only: `.\dough.cmd --check examples\test.doe`
-- Runtime info: `.\dough.cmd --runtime-info`
-- Version: `.\dough.cmd --version`
-- Self-contained publish: `.\publish-runtime.ps1`
-- Full release build: `.\build-release.ps1`
-- If `published\win-x64\Dough.exe` exists, the wrappers prefer it for standalone use.
-- If no standalone runtime exists, the wrappers now prefer Release builds before Debug fallback.
+- the CLI/runtime
+- the Windows MSI installer build
+- the VS Code language tooling submodule in `Dough/`
+- the built-in `Dough-2d` plugin and Doe wrappers
 
-## Install In VS Code (Language Support)
+## Install
 
-- Install from Marketplace:
-  - `code --install-extension aidanace3.dough-language`
-- Or in VS Code Extensions search:
-  - `aidanace3.dough-language`
+### Runtime
 
-## Install Runtime (CLI)
+- Latest releases: `https://github.com/Aidanace3/Doe-Language/releases/latest`
+- Standalone build: run `.\publish-runtime.ps1`
+- Windows MSI build: run `.\build-msi.ps1`
+- Full release bundle: run `.\build-release.ps1`
 
-- Open: `https://github.com/Aidanace3/Doe-Language/releases/latest`
-- Download `dough-runtime-win-x64.zip`
-- Extract and run `Dough.exe yourfile.doe`
-- Or build your own standalone runtime with `.\publish-runtime.ps1`
-- Or build both runtime and VS Code artifacts with `.\build-release.ps1`
-- Optional: add the extracted folder to your PATH so `Dough.exe` works from any terminal.
+The MSI installs to `C:\Program Files\Dough`, adds that folder to `PATH`, and sets `DOE_PLUGIN_PATH` to `C:\Program Files\Dough\plugins`.
 
-## Add `Launch.Json`
+### VS Code extension
 
-- Add a folder at top called `.vscode`
+- Marketplace install: `code --install-extension aidanace3.dough-language`
+- Extension repo: `https://github.com/Aidanace3/Dough`
 
-- Add a file called `Launch.json`
-  paste this;
-  
-```json
-  {
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Dough: Run Current File (CLI)",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${workspaceFolder}/../Doe-Language/dough.ps1\" \"${file}\""
-    },
-    {
-      "name": "Dough: Debug Current File (CLI)",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${workspaceFolder}/../Doe-Language/dough.ps1\" --debug \"${file}\""
-    }
-  ]
-}
+## Run programs
+
+Examples:
+
+```powershell
+.\dough.cmd examples\test.doe
+.\dough.cmd --check examples\test.doe
+.\dough.cmd --debug examples\test.doe
+.\dough.cmd --version
+.\dough.cmd --runtime-info
 ```
 
-## Syntax
+The wrappers prefer:
 
-### Preferred / Legacy / Deprecated
+1. `published\win-x64\Dough.exe`
+2. Release builds
+3. Debug builds
 
-- Preferred
-  - `yield` keyword spelling
-  - Point dispatch with `>>` or `<<` (for example: `yield value << Point`)
-  - `return value >> this` when returning to a parent point context
-  - `=` for assignment, `==` for comparison, `===` for strict comparison
-  - Screenshot-style aliases now accepted for modern authoring:
-    `with ...`, `unless (...)`, `Otherwise:` inside `IfCase`, grouped `Case:(A, B, C):`, dotted access like `meta.device`, and `new type name: { ... }`
-- `import` / `with` now execute local `.doe` / `.dough` modules once, resolve relative to the importing file, and search common library folders such as `lib/`, `libs/`, `library/`, and `libraries/`
-  - `with plugin:PluginName` loads a C# plugin assembly from common plugin folders such as `plugins/` and `plugin/`
-- Legacy (still supported)
-  - `yeild` spelling
-  - Legacy point-case forms kept for compatibility
-- Deprecated
-  - `def`/`Funcs`-style declarations remain supported for backward compatibility but should be phased out due to points.
-
-### Section 1: Basic Syntax
-
-#### Other rules
-
-- An independent bool is prefixed by an `@`
-- - eg. `as (@true);`
-- Any casing works, even if specifically noted here, (eg, ’Print` = `print`)
-
-#### Operators
-
-ARITH Operators: `+`,`**`,`-`,`/`,`%`,`^`,`%%`.
-
-- `+`: Add
-- `**`: Multiply ( \* is used for points )
-- `-`: Subtract
-- `/`: Divide
-- `%`: Percentage of
-- `^`: Exponentiate
-- `%%`: Remdiv (Modulo)
-  
-CON Operators: `>`, `<`, `=>`, `<=`, `!`, `|`, `*|`, `!&`, `!|`, `&&`, `!&`.
-
-- `>`: Greater
-- `<`: Less
-- `=>`: Equal or Greater
-- `<=`: Equal or Less
-- `!`: Not
-- `|`: Or
-- `*|`: Xor
-- `&&`: Xand (Common And)
-- `!&`: Nand
-- `!|`: Nor
-  
-#### I/O
-
-#### Input
-
-- `readln(n)` - reads in line #n
-- `Input("Prompt")` - accepts user input
-  - `-H` - hide input with asterisks
-  - `-W n` - adds a time limit to input
-
-#### Output
-
-- `Print("x")` - simple output
-- Use `+` to concatenate variables with text
-
-#### Types
-
-- `NoPoly` - keep type; no polymorphism
-- `Const` - keep value constant
-- `Str`, `String` - text value
-- `Int` - no-decimal numeral
-- `Flt` - decimal numeral
-- `Arr[Type]` - array with specified types
-- `Max(Arr)` - append upper limit to array
-- `Min(Arr)` - opposite (lower limit)
-
-#### Conditions
-
-**If Statement:**
+## Language quick look
 
 ```dough
-if(condition)::then
+conf app:
 {
-    // code
-}
-```
-
-/(
-something cool you can do is change the `Then` after the `::` to a `Break` or `Func()`
-to directly do a Break or Run a Function after check.
-)\
-
-eg.
-
-```Dough
-NoPoly Const Int X = 5
-
-def FunctionA {
-  Print("hi")
+    str title = "Hello"
+    int width = 720
+    int height = 420
 }
 
-if ( X == 5 )::FunctionA()
+def Main()
 {
-  Return X >> this
+    Print(app.title)
 }
 ```
 
-**Else Statement:**
+Core features:
+
+- `.doe` and `.dough` source files
+- `conf`, `dict`, `map`, arrays, functions, points
+- plugin loading with `with plugin:Name`
+- local module imports from `lib/`, `libs/`, `library/`, and `libraries/`
+
+## Plugins
+
+### C# plugins
+
+Plugins can be loaded with:
 
 ```dough
-else::
-{
-    // otherwise code
-}
+with plugin:Your.Plugin.Name
 ```
 
-**Switch Statement:**
+Search roots include:
+
+- the current working directory
+- the importing file directory
+- `plugins/` and `plugin/` folders
+- `DOE_PLUGIN_PATH`
+- `PATH`
+
+Two plugin styles are supported:
+
+- convention plugin: public static `PluginFunctions` methods
+- SDK plugin: implement `IDoePlugin` from `PluginSdk/DoePluginContracts.cs`
+
+### Dough-2d
+
+The repo ships a built-in Windows-focused 2D/UI plugin:
+
+- primary Doe wrapper: `lib/Dough-2d.doe`
+- compatibility wrapper: `lib/lib2d.doe`
+- plugin project: `plugins/Dough-2d/Dough-2d.csproj`
+
+Example imports:
 
 ```dough
-IfCase(x)
-{
-    Case: X is N:
-    {
-        // code
-    }
-    Default: X is Outlier
-    {
-        // code for outlier cases
-    }
-}
+with "../lib/Dough-2d.doe"
 ```
 
-#### Dictionaries, Configs & Functions
+Legacy `lib2d` wrappers still work for compatibility.
 
-- `Dict` - create a dictionary (see Section 2.3)
-- `Conf` - create an importable config dictionary
-- `map(dict, overlayDict)` - merge configs/dicts into a new dict
-- `map(dict, "key1", "key2")` - project selected values into an array
-- `Return` - written as `Return n >> (point)`
-- `Funcs` - Depracated
+## Development
 
-#### Points
+### Runtime
 
-- Written as `(*POINTNAME)`
-- Used for `YEILD` and `RETURN`
-- Use `this` (not `*this`) for parent point context
-- `awaitval` executes a function as soon as a value is taken from yeild
-- `yeild(var >> *Point)` sends a value to a point.
-- `exit(*Point)` removes point from list. use after cases and functions
-- `Store(Val Asa Valname >> *Point)` saves a value to a point
-- - accessible with `request(x << *Point.Valname)`
-- - Another way to store it is defining it in the Point's function it's connected to
-- Examples in Section 2.4
-
----
-
-## Section 2: Examples & Syntax
-
-### 2.1 Loops
-
-Point loop
-
-```dough
-{
-(*); 
-{
-  //code
-  loop ( l >> this x10 )
-  return l >> this
-}
-exit(*this)
-}
+```powershell
+dotnet build .\Other_Bullshit\Doe-Language.csproj -c Release
 ```
 
-Built in loops:
+### Dough-2d plugin
 
-as (while)
-
-```dough
-as(@true):
-{
-  //code
-  if(@stopcondition)::break
-}
+```powershell
+dotnet build .\plugins\Dough-2d\Dough-2d.csproj -c Release
 ```
 
-each in (foreach)
+### VS Code extension
 
-```dough
-each(x in [arr]) do:
-{
-  //code
-}
+```powershell
+cd .\Dough
+npm ci
+npx @vscode/vsce package --no-dependencies
 ```
 
-### 2.2 Arrays
+## Release outputs
 
-To define a typed array:
+`.\build-release.ps1` produces:
 
-```dough
-name = [1, 2, 3]
-```
+- published runtime files under `artifacts\<version>\runtime-win-x64`
+- `dough-runtime-x64.msi`
+- `dough-language-<version>.vsix`
 
-### 2.3 Dictionaries
+## Repository layout
 
-Define a dict:
-
-```dough
-dict ExampleDict:
-{
-    // variables go here
-};
-```
-
-Define a locked (single type) dict:
-
-```dough
-locked dict(type):
-{
-    // variables of specified type
-}
-```
-
-Define a config:
-
-```dough
-conf WindowBase:
-{
-    int width = 1280
-    int height = 720
-    str title = "Doe Window"
-}
-```
-
-Configs are imported the same way as normal modules and behave as dictionaries at runtime.
-
-Compose imported configs:
-
-```dough
-with display_config
-
-dict FinalWindow = map(base_window, debug_window)
-arr picked = map(FinalWindow, "width", "title")
-```
-
-to use a dictionary variable; `Dict.Varname’
-
-### 2.4 Points
-
-```dough
-(*Taking:) awaitval(x;)
-{
-    print(x)
-}
-
-// other stuff
-x = 5
-x >> *Taking
-```
-
-**Output:** `5`
-
-```dough
-// Example of a continuous listener
-(*LogStream:) awaitval(msg;)
-{
-    Print("LOG: " + msg)
-}
-
-// Later in the code
-if ( Logval == 1 )::Then
-  {"message 1" >> *LogStream}
-elif ( Logvak == 2 )::Then
-  {"message 2" >> *LogStream}
-else::Break
-```
-
-### 2.6 C# Plugins
-
-- Use `with plugin:Your.Plugin.Name` to load a C# plugin assembly.
-- Plugins are searched from the current project, the importing file's folder, and common plugin folders like `plugins/` and `plugin/`.
-- Two authoring styles are supported:
-  - Simple convention plugin: a public static `PluginFunctions` class whose public static methods become callable from Doe.
-  - SDK plugin: implement `IDoePlugin` from [DoePluginContracts.cs](/c:/Users/Norberg/DoeLang/Doe-Language/PluginSdk/DoePluginContracts.cs).
-- Example sample plugin:
-  - [Doe.WindowsPlugin.Sample.csproj](/c:/Users/Norberg/DoeLang/Doe-Language/plugins/Doe.WindowsPlugin.Sample/Doe.WindowsPlugin.Sample.csproj)
-  - [WindowsPlugin.cs](/c:/Users/Norberg/DoeLang/Doe-Language/plugins/Doe.WindowsPlugin.Sample/WindowsPlugin.cs)
-- Example Doe usage:
-  - [plugin_demo.doe](/c:/Users/Norberg/DoeLang/Doe-Language/examples/plugin_demo.doe)
-
-### 2.5 Conditionals
-
-#### 2.5.1 Cases
-
-```dough
-*Case ifCase(n;)
-  *Case << 5 :: Then
-  {/(code goes here)\}
-  *Case << outlier? // equivelant to `Default` in clang
-  {/(code goes here)\};
-Exit(*case)
-```
-
-#### 2.5.2 If/Else
-
-```dough
-NoPoly Int x = 7
-if ( X > 6 )::then
-  x = 7
-else::break
-
-```
-
-### Footnotes
+- `src/`: runtime source
+- `PluginSdk/`: plugin contracts
+- `plugins/`: sample and built-in plugins
+- `lib/`: Doe wrapper modules
+- `examples/`: sample programs
+- `installer/`: WiX MSI project
+- `Dough/`: VS Code extension submodule

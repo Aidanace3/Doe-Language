@@ -17,7 +17,7 @@ namespace Doe_Language
 
     public static class Program
     {
-        private const string RuntimeVersion = "0.9.0";
+        private const string RuntimeVersion = "1.0.0";
 
         public static void Main(string[] args)
         {
@@ -48,7 +48,7 @@ namespace Doe_Language
             }
 
             path = Path.GetFullPath(path);
-            string source = File.ReadAllText(path);
+            string source = File.ReadAllText(path).TrimStart('\uFEFF');
 
             try
             {
@@ -90,7 +90,7 @@ namespace Doe_Language
                 if (HasFlag(args, "--debug"))
                 {
                     List<int> breakpoints = ParseBreakpoints(args);
-                    bool startInStepMode = breakpoints.Count == 0 || HasFlag(args, "--step");
+                    bool startInStepMode = HasFlag(args, "--step");
                     debugger = new DebuggerSession(breakpoints, startInStepMode);
                 }
 

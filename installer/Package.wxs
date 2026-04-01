@@ -1,0 +1,42 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Id="DoeLanguage.DoughRuntime"
+    Name="Dough Runtime"
+    Manufacturer="Doe Language"
+    Version="$(var.RuntimeVersion)"
+    UpgradeCode="FBAE7E2B-06E4-46F3-A477-84D52EAB3D5F"
+    Language="1033"
+    Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Dough Runtime is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Dough">
+        <Files Include="!(bindpath.RuntimePayload)\**" />
+
+        <Component Id="InstallFolderEnvironment" Guid="C3B9BE35-D0E4-4EA0-95DE-D0665BF8245D">
+          <Environment
+            Id="EnvPath"
+            Name="PATH"
+            Action="set"
+            Part="last"
+            System="yes"
+            Value="[INSTALLFOLDER]" />
+        </Component>
+
+        <Directory Id="PLUGINSFOLDER" Name="plugins">
+          <Component Id="PluginFolderSetup" Guid="5E0F7E95-63B1-45D2-8D79-60B9563A5D1D">
+            <CreateFolder />
+            <Environment
+              Id="EnvDoePluginPath"
+              Name="DOE_PLUGIN_PATH"
+              Action="set"
+              System="yes"
+              Value="[PLUGINSFOLDER]" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+  </Package>
+</Wix>

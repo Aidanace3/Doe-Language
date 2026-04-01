@@ -1,0 +1,63 @@
+with "../lib/Dough-2d.doe"
+
+Print("Dough-2d version = " + dough2d_version())
+
+conf window_profile:
+{
+    int x = 640
+    int y = 360
+    str title = "Dough-2d quickstart"
+    int red = 20
+    int green = 24
+    int blue = 32
+}
+
+label_profile = map(label_defaults)
+label_profile.text = "Click launch"
+label_profile.width = 240
+
+button_profile = map(button_defaults)
+button_profile.text = "Launch"
+
+physics_profile = map(physics_defaults)
+physics_profile.floor_y = 280
+
+body_profile = map(body_defaults)
+body_profile.x = 64
+body_profile.y = 24
+body_profile.vx = 100
+
+int window_id = dough2d_window_from(window_profile)
+int label_id = dough2d_label_from(window_id, label_profile)
+int button_id = dough2d_button_from(window_id, button_profile)
+int world_id = dough2d_world_from(physics_profile)
+int body_id = dough2d_body_from(world_id, body_profile)
+
+frame = 0
+as(@true):
+{
+    frame = frame + 1
+
+    dough2d_step_from(world_id, physics_profile)
+    state = dough2d_body_info(body_id)
+    dough2d_set_text(label_id, "x=" + state.x + " y=" + state.y)
+
+    event_name = dough2d_last_event(window_id)
+    if (event_name == "button:" + button_id)::then
+    {
+        dough2d_velocity(body_id, 160, -220)
+        dough2d_clear_event(window_id)
+    }
+
+    if (event_name == "closed")::then
+    {
+        break
+    }
+
+    if (frame > 900)::then
+    {
+        break
+    }
+}
+
+dough2d_window_close(window_id)

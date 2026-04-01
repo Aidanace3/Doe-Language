@@ -1,0 +1,14 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <InstallerPlatform Condition="'$(InstallerPlatform)' == ''">x64</InstallerPlatform>
+    <RuntimeVersion Condition="'$(RuntimeVersion)' == ''">1.0.0</RuntimeVersion>
+    <RuntimePayloadDir Condition="'$(RuntimePayloadDir)' == ''">$(MSBuildProjectDirectory)\..\published\win-x64</RuntimePayloadDir>
+    <OutputName>dough-runtime-$(InstallerPlatform)</OutputName>
+    <DefineConstants>RuntimeVersion=$(RuntimeVersion)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <BindPath Include="$(RuntimePayloadDir)" BindName="RuntimePayload" />
+  </ItemGroup>
+</Project>

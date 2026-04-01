@@ -569,9 +569,12 @@ namespace Doe_Language
         private void ImportSingleModule(string rawModuleSpec, RuntimeEnvironment env, int line)
         {
             string moduleSpec = NormalizeImportSpec(rawModuleSpec);
-            if (IsPluginImportSpec(moduleSpec))
+            if (IsPluginImportSpec(moduleSpec) || IsDllImportSpec(moduleSpec))
             {
-                LoadPluginAssembly(moduleSpec, line);
+                string pluginModuleSpec = IsPluginImportSpec(moduleSpec)
+                    ? moduleSpec
+                    : "plugin:" + moduleSpec;
+                LoadPluginAssembly(pluginModuleSpec, line);
                 return;
             }
 
@@ -844,7 +847,12 @@ namespace Doe_Language
         private List<string> BuildImportRoots()
         {
             List<string> roots = new List<string>();
-            AddImportRoot(roots, Directory.GetCurrentDirectory());
+            string currentDirectory = Directory.GetCurrentDirectory();
+            AddImportRoot(roots, currentDirectory);
+            AddImportRoot(roots, Path.Combine(currentDirectory, "lib"));
+            AddImportRoot(roots, Path.Combine(currentDirectory, "libs"));
+            AddImportRoot(roots, Path.Combine(currentDirectory, "library"));
+            AddImportRoot(roots, Path.Combine(currentDirectory, "libraries"));
 
             if (_modulePathStack.Count > 0)
             {
@@ -876,6 +884,9 @@ namespace Doe_Language
                 AddImportRoot(roots, Path.Combine(baseRoots[i], "plugin"));
             }
 
+            AddEnvironmentRoots(roots, "DOE_PLUGIN_PATH");
+            AddEnvironmentRoots(roots, "PATH");
+
             return roots;
         }
 
@@ -896,6 +907,21 @@ namespace Doe_Language
             }
 
             roots.Add(fullPath);
+        }
+
+        private static void AddEnvironmentRoots(List<string> roots, string variableName)
+        {
+            string? value = Environment.GetEnvironmentVariable(variableName);
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            string[] parts = value.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                AddImportRoot(roots, parts[i].Trim());
+            }
         }
 
         private static void AddImportCandidates(List<string> candidates, string moduleSpec)
@@ -975,6 +1001,11 @@ namespace Doe_Language
         private static bool IsPluginImportSpec(string moduleSpec)
         {
             return moduleSpec.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsDllImportSpec(string moduleSpec)
+        {
+            return moduleSpec.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string NormalizePluginSpec(string moduleSpec)
