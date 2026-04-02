@@ -4,8 +4,11 @@
     if(IsConnected == @true)::then {
         (*Auth:) awaitval(Token;)
         {
-            if(Token != null)::then {
-                
+            if(Token == null)::then {
+                return()
+            }
+            else
+            {
                 (*Perm:) awaitval(Role;)
                 {
                     
@@ -45,7 +48,7 @@
         Print("OFFLINE")
     }
 }
-
+}
 // block of fuck you 
 yield(@true >> *Conn)
 

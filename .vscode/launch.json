@@ -7,17 +7,5 @@
       "request": "launch",
       "command": "dotnet run --project Other_Bullshit/Doe-Language.csproj -- \"${file}\""
     },
-    {
-      "name": "Dough: Debug Current File (CLI)",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "dotnet run --project Other_Bullshit/Doe-Language.csproj -- --debug \"${file}\""
-    },
-    {
-      "name": "Dough: Debug examples/test.doe (CLI)",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "dotnet run --project Other_Bullshit/Doe-Language.csproj -- --debug --break=1 examples/test.doe"
-    }
   ]
 }
