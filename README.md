@@ -483,7 +483,7 @@ dict merged = map(base, override)
 arr[str] projected = map(merged, "width", "title")
 ```
 
-### Custom Types (windowtype)
+### Custom Types (eg; windowtype)
 ```doe
 new windowtype landscape: {
     1080,       // x
