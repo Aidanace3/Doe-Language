@@ -103,9 +103,7 @@ def Main()                       // Main function (optional)
 ```doe
 // Single-line comment
 
-(*Multi-line comment*)
-
-(*Labeled comment:*)
+/hMulti-line comment)\
 ```
 
 ### Basic Output
