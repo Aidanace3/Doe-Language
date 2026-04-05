@@ -1,3 +1,4 @@
+
 # Doe Language - Complete Documentation
 
 ## Table of Contents
@@ -19,21 +20,6 @@
 
 ---
 
-## Overview
-
-**Doe** (also called **Dough**) is a modern programming language with a focus on:
-- Clean, readable syntax
-- Configuration-first paradigms with `conf` blocks
-- Async/await patterns using "points" (message-passing primitives)
-- Plugin architecture with C# support
-- Windows-focused with a 2D/UI library (`Dough-2d`)
-
-**File Extensions:** `.doe` or `.dough`
-
-**Current Version:** 1.0.0
-
----
-
 ## Installation
 
 ### Prerequisites
@@ -43,7 +29,7 @@
 ### Runtime Installation
 
 #### Option 1: Latest Release
-Download from: https://github.com/Aidanace3/Doe-Language/releases/latest
+Download from: https://github.com/Aidanace3/Dough/releases/latest
 
 #### Option 2: Build from Source
 ```powershell
