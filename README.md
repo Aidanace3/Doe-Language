@@ -62,7 +62,7 @@ Or search for "dough-language" in the VS Code marketplace.
 ---
 
 ## Basic Syntax
-
+ note: K&R block lining is reccomended but LF works too
 ### Hello World
 ```doe
 Print("hello")
